@@ -14,7 +14,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.0.1"
+#define CSI2NCDF_VER "2.0.2"
 
 /* ........................................................................
  *
@@ -330,12 +330,13 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 	                         (coldef[i].index)++;
                             (coldef[i].curr_index)++;
                             coldef[i].got_val = TRUE;
-                          } else {
-               			     printf("error: do not have value for following variable %s\n",
-                             coldef[i].name);
-                             nc_close(ncid);
-               			     exit;
-                          }
+                            if (coldef[i].follow_missed) {
+                              printf("warning: did not have data for following variable %s on %i lines\n",
+                                     coldef[i].name, coldef[i].follow_missed);
+                              coldef[i].follow_missed = 0;
+                            }
+                          } else
+                             (coldef[i].follow_missed)++;
                       }
                       /* This is a time component, but we're not reading the
                          line of a following variable */

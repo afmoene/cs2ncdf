@@ -25,6 +25,7 @@ typedef struct {
   float *follow_val;
   int  array_id;
   int  follow_id;
+  int  follow_missed;
   int  col_num;
   int nc_var;
   int nc_type;
@@ -648,6 +649,7 @@ boolean
 	      (*(coldef+*numcoldef)).index = 0;
 	      (*(coldef+*numcoldef)).curr_index = 0;
 	      (*(coldef+*numcoldef)).first_index = 0;
+	      (*(coldef+*numcoldef)).follow_missed = 0;
 	      
 	      /* Is time component ?*/
 	      (*(coldef+*numcoldef)).time_comp = time_comp;
