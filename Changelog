@@ -1,5 +1,10 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.8: 2004-06-30 (arnold.moene@wur.nl)
+* fixed bug in case a binary csi-file starts with an incomplete line and
+  the user wants printout to the screen (e.g. -l 10). The storage string for
+  the line to be printed was not initialized if starting halfway a line. Fixed
+  now.
 Version 2.2.7: 2003-12-16 (arnold.moene@wur.nl)
 * added minimal support for TOB1 files (only writing to stdout
 * when writing to stdout one can choose which columns should be written

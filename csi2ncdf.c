@@ -34,7 +34,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.2.7"
+#define CSI2NCDF_VER "2.2.8"
 
 /* ........................................................................
  *
@@ -252,11 +252,11 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      */
     /* (1) Read definition of columns from format file */
     numcoldef = 0;
-    printline = NULL;
     if    (!list_line)
       def_nc_file(ncid, formfile, coldef,   &numcoldef,   (int)   MAXCOL);
 
     /* (2) Initialize */
+    printline = get_clearstring(20000);
     linenum=0;
     colnum=0;
     array_id =   -1;
@@ -525,6 +525,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      colnum=1;
                      if ((list_line   &&   linenum <= list_line) ||
                            (list_line == -1)) {
+			 free(printline);
                          printline = get_clearstring(10000);
 			 if (print_col[colnum-1]) {
                             sprintf(dumstring, "%i ", array_id);
