@@ -1,6 +1,12 @@
 $Id$
 Changelog for csi2ncdf
 
+Version 2.2.1: 2002-9-26 (arnold.moene@wur.nl)
+* fixed bug: in some cases where sloppy switch was needed, value
+  of a variable from the last correct column was copied to the 
+  output array every time an invalid byte was encountered. This affected
+  only files that were processed with sloppy flag or 
+  which gave messages about 'Dummy word found'.
 Version 2.2 : 2002-9-26  (arnold.moene@wur.nl)
 * now can read data also from text files, even if they're not structured as
   the binary CSI files (the array ID is relevant here). Then use the

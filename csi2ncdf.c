@@ -321,11 +321,19 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  case DUMMY_WORD:
                      printf("found dummy word on line %i\n", linenum);
                      curr_byte =   curr_byte +   2;
+	             /* Just up the column number, to prohibit that 
+		      * dummy the previous value is written to
+		      * the last column */
+                     colnum++;
                      break;
                  default:
                      if (sloppy) {
                         printf("warning unkown byte type\n");
                         curr_byte++;
+			/* Just up the column number, to prohibit that 
+			 * dummy the previous value is written to
+			 * the last column */
+                        colnum++;
                      } else   {
                         status = nc_close(ncid);
                         close(infile);
