@@ -13,7 +13,6 @@
                                      * supported by compiled size
                                      */
 
-#define NO_VALUE         -999.99    /* missing value code for float */
 
 
 void
