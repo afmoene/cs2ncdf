@@ -945,7 +945,7 @@ void txtdecode(char* s, double *txtdata,
        strncpy(dumstring, s, i);
        dumstring[i]='\0';
        // Check if this really can be a number; it might be end of line!
-       if (isprint(dumstring[i-1])) {
+       if (isprint(dumstring[i-2])) {
           txtdata[col] = atof(dumstring);
           s = s + i ;
           col++;

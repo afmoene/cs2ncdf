@@ -1,5 +1,12 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.11: 2005-03-23 (arnold.moeen@wur.nl)
+* added logic to take care of textfiles with no array-id  (switch -a) in first column and
+data that are needed from the first column (before we only could get data
+starting from column 2, since column 1 was implicitly assumed to be filled
+with array-id. But if column 1 contains arrayID it still works (data start in
+column 2).
+* fixed bug in parsing of text lines: missed the last column
 Version 2.2.10: 2004-11-25 (arnold.moene@wur.nl)
 * now can read input from standard input as well (making pipes possible)
 * implemented listing of TOB1 data for less than the entire file possible

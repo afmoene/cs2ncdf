@@ -35,7 +35,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.2.10"
+#define CSI2NCDF_VER "2.2.11"
 
 /* ........................................................................
  *
@@ -248,7 +248,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      int     ndummy;
      char    *printline  , dumstring[100];
      boolean have_start, have_stop, start_data, stop_data, end_txtline,
-             valid_sample;
+             valid_sample, fake_did_start_output;
      column_def
          coldef[MAXCOL];
 
@@ -262,6 +262,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
       def_nc_file(ncid, formfile, coldef,   &numcoldef,   (int)   MAXCOL);
 
     /* (2) Initialize */
+    fake_did_start_output = FALSE;
     linenum=0;
     colnum=0;
     array_id = -1;
@@ -327,9 +328,16 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                /* (3.2.1) Determine type of byte read */
 	      if (txtfile) {
                   if (colnum == 0) {
-	             myswitch = START_OUTPUT;
-		  } else 
+		     if (fake && fake_did_start_output) 
+	                myswitch = TXT_VALUE;
+		     else {
+	                myswitch = START_OUTPUT;
+		        fake_did_start_output = TRUE;
+		     }
+		  } else {
 	             myswitch = TXT_VALUE;
+		     fake_did_start_output = FALSE;
+		  }
 	      } else
                   myswitch = bytetype((data+curr_byte));
 	      valid_sample = FALSE;
@@ -339,21 +347,23 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
               }
               switch (myswitch)   {
                  case TXT_VALUE:
-	             value = txtdata[colnum];
-                     if ((list_line && linenum   <=   list_line) ||
-                         (list_line == -1)) {
-                         if (print_col[colnum-1]) {
-                            sprintf(dumstring, "%f ", value);
-                            if (!printline)  printline = get_clearstring(MAXLINELEN);
-                            strcat(printline, dumstring);
-			 }
-                     }
-		     if (colnum > 0) {
+		     // We need >= 0 here because in case of fake, we also need the first column !!
+		     if (colnum >= 0) {
 			   colnum++;
 	     	           valid_sample = TRUE;
                      }
 		     if (colnum ==  ncol)
 			     end_txtline = TRUE;
+
+	             value = txtdata[colnum-1];
+                     if ((list_line && linenum   <=   list_line) ||
+                         (list_line == -1)) {
+                         if (print_col[colnum-1]) {
+                            sprintf(dumstring, "%G ", value);
+                            if (!printline)  printline = get_clearstring(MAXLINELEN);
+                            strcat(printline, dumstring);
+			 }
+                     }
 		     break;
                  case TWO_BYTE:
                      value =  (double) conv_two_byte((data+curr_byte));
@@ -533,9 +543,8 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                          value = (double) txtdata[0];
                      reset_cond(loc_cond, n_cond, array_id);
                   
-		     /* Advance one line, if needed make new printline */
+		     /* Advance one line, if needed make new printline and reset colnum*/
                      linenum++;
-                     colnum=1;
                      if ((list_line   &&   linenum <= list_line) ||
                            (list_line == -1)) {
 			 free(printline);
@@ -550,6 +559,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      }
 		     if (!txtfile)
                          curr_byte =   curr_byte +   2;
+		     if (txtfile && fake) 
+                        colnum=0;
+		     else
+                        colnum=1;
                      break;
 
                  case DUMMY_WORD:
@@ -594,6 +607,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  *  - a variable that follows this array_id
                  *  - first column and i am the time variable
                  */
+
                  if ((coldef[i].array_id == array_id &&
                       ((coldef[i].col_num   ==   colnum) ||
                        ((coldef[i].col_num <= colnum)   &&
