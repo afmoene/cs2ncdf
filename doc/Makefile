@@ -20,4 +20,4 @@ readme.rtf: readme.sgml
 readme.txt: readme.sgml
 	$(JADE) -t sgml -d $(TXTDSL) readme.sgml > foo.html
 	$(LYNX) -dump -width=90 -nolist -force_html  foo.html > readme.txt
-#	$(RM) foo.html
+	$(RM) foo.html
