@@ -1,6 +1,4 @@
-<!doctype article public "-//OASIS//DTD DocBook V4.1//EN" [
-<!ENTITY gpl SYSTEM "gpl.sgml">
-]>
+<!doctype article public "-//OASIS//DTD DocBook V4.1//EN">
 <article id="readme">
 
 <articleinfo>
@@ -63,7 +61,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 </screen>
 
-For a complete version of the GPL, see <xref linkend="gpl">.
+For a complete version of the GPL, see the file Copying that comes with this program.
 
 </para>
 
@@ -884,14 +882,6 @@ missed and not filled with dummy values.
 </sect3>
 </sect2>
 
-</sect1>
-
-<sect1 id="gpl"><title>License</title>
-<para>
-<screen>
-&gpl;
-</screen>
-</para>
 </sect1>
 
 </article>
