@@ -3,10 +3,8 @@ Installation hints for csi2ncdf
 
 Binary
 ------
-The release contains a DOS-executable of csi2ncdf, which was compiled
-with DJGPP (with gcc 2.95.2). It will work perfectly well
-in a DOS-box on Win95 and Win98 machines (and maybe 'higher' Windows
-as well, though not tested).
+The release contains a windows-executable of csi2ncdf, which was (cross-)compiled
+with Mingw on a linux box.
 
 Source
 ------

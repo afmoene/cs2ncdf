@@ -47,7 +47,7 @@ const char* conditions[N_COND] = {"==",">","<",">=","=>","<=","=<","!="};
 typedef struct {
    char  *cond_text;
    int   cond_type;
-   float cond_number;
+   double cond_number;
    int   cond_col;
    int   cond_arrayid;
    boolean status;
@@ -114,7 +114,7 @@ void parse_cond(cond_def *thiscond)
    strncat(colstring, pos2+1,(size_t) (pos3-pos1-1));
    (*thiscond).cond_col = (int) atoi(colstring);
    (*thiscond).cond_number =
-       (float)atof(pos3+strlen(conditions[(*thiscond).cond_type]));
+       (double)atof(pos3+strlen(conditions[(*thiscond).cond_type]));
    free(colstring);
 }
 
@@ -206,7 +206,7 @@ void reset_cond(maincond_def *loc_cond, int ncond, int arrayid){
 }
 
 void check_cond(maincond_def loc_cond[MAXCOND], int ncond,
-                int arrayid, int col, float value){
+                int arrayid, int col, double value){
    int i,j, n_subcond;
 
    for (i=0; i<ncond; i++) {

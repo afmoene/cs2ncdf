@@ -204,7 +204,7 @@ unsigned int conv_arrayid(unsigned char byte[2]) {
  * Purpose:   To convert from CSI hour minutes to decimal hours
  * ........................................................................
  */
-float conv_hour_min(float value){
+float conv_hour_min(double value){
    return (floor(value/100)+(value/100-floor(value/100))/0.6);
 }
 

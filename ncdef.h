@@ -49,8 +49,8 @@ typedef struct {
   float missing_value;
   float time_mult;
   float time_offset;
-  float *values;
-  float *follow_val;
+  double *values;
+  double *follow_val;
   int  array_id;
   int  follow_id;
   int  follow_missed;
@@ -658,7 +658,7 @@ boolean
 	      (*(coldef+*numcoldef)).missing_value = missing_value;
 	      /* Make room for floats (conversions handled by netcdf */
          (*(coldef+*numcoldef)).values =
-	           (float *) malloc(sizeof(float)*MAX_SAMPLES*
+	           (double *) malloc(sizeof(double)*MAX_SAMPLES*
 	                     (*(coldef+*numcoldef)).ncol);
 	      /* Array Id to follow (faster changing) */
          (*(coldef+*numcoldef)).follow_id = follow_id;
@@ -669,7 +669,7 @@ boolean
                * that follow other array ID */
 	      if (follow_id != -1) {
                 (*(coldef+*numcoldef)).follow_val = 
-	           (float *) malloc(sizeof(float)*
+	           (double *) malloc(sizeof(double)*
 	                     (*(coldef+*numcoldef)).ncol);
    		for (j=0; j<ncol; j++) {
    		   (*(coldef+*numcoldef)).follow_val[j] = 
@@ -734,7 +734,7 @@ boolean
 
       /* Make room for floats (conversions handled by netcdf */
       (*(coldef+*numcoldef)).values = 
-           (float *) malloc(sizeof(float)*MAX_SAMPLES*
+           (double *) malloc(sizeof(double)*MAX_SAMPLES*
                      (*(coldef+*numcoldef)).ncol);
       
       /* Scale factor */
@@ -908,7 +908,7 @@ boolean
  *            under GPL causes problems.
  * ........................................................................
  */
-void txtdecode(char* s, float *txtdata, 
+void txtdecode(char* s, double *txtdata, 
                 int inftype, int *ncol) {
    int status,i, col;
    char dumstring[MAX_STRINGLENGTH], delimiter, *pCh,
@@ -944,9 +944,12 @@ void txtdecode(char* s, float *txtdata,
 	  i = strlen(s);
        strncpy(dumstring, s, i);
        dumstring[i]='\0';
-       txtdata[col] = atof(dumstring);
-       s = s + i ;
-       col++;
+       // Check if this really can be a number; it might be end of line!
+       if (isprint(dumstring[i-1])) {
+          txtdata[col] = atof(dumstring);
+          s = s + i ;
+          col++;
+       }
    }
    *ncol = col;
 }

@@ -1,5 +1,20 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.10: 2004-11-25 (arnold.moene@wur.nl)
+* now can read input from standard input as well (making pipes possible)
+* implemented listing of TOB1 data for less than the entire file possible
+* increased MAXCOL to 256 (but better, dynamic allocation should be used, not
+yet implemented).
+* converted members of struct columndef (values and follow_val) to double, as
+well as value variable in do_conv_csi; also changes in cond_number and
+conv_hourmin related to float -> double
+* fixed error that one column too many was written to standard output when
+reading from a a text file.
+* fixed error in txtdecode that would give extra column at end (trying to
+decode the newline character as well).
+* Got rid of empty line written to stdout when listing data to stdout
+* Now listing data, read from a text file, with a faked ArrayID (switch -a) 
+works correctly.
 Version 2.2.9: 2004-08-30 (arnold.moene@wur.nl)
 * fixed some errors that caused cross-compilation for windows to fail
 Version 2.2.8: 2004-06-30 (arnold.moene@wur.nl)

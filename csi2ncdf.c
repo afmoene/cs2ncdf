@@ -26,7 +26,8 @@
 
 #include   "netcdf.h"
 
-#define MAXCOL   100
+#define MAXCOL   256
+#define MAXLINELEN   20000
 #include   "ncdef.h"
 #include   "csibin.h"
 #include   "in_out.h"
@@ -34,7 +35,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.2.8"
+#define CSI2NCDF_VER "2.2.10"
 
 /* ........................................................................
  *
@@ -50,6 +51,8 @@
  *                     [-l num_lines] -h
  *
  *            -i Inputfile  : name (including path) of inputfile
+ *                            if Inputfile is a dash (-), data is read 
+ *                            from the standard input.
  *            -o Outputfile : name (including path) of outputfile
  *            -f Formatfile : name (including path) of format file
  *            -l num_lines  : displays num_lines of the input datafile on
@@ -165,7 +168,7 @@ void do_conv_tob1(FILE *infile, int ncid, FILE *formfile, int list_line, boolean
 	char buffer[1024], two_char[2];
         char dumstring[MAX_STRINGLENGTH], delimiter, *pCh,
              *pChSpace, substring[MAX_STRINGLENGTH], s[MAX_STRINGLENGTH];
-	int  i, ncol, coltype[MAXCOL];
+	int  i, ncol, coltype[MAXCOL], cur_line;
 	unsigned long dum_long;
 	float dum_float;
 
@@ -178,7 +181,9 @@ void do_conv_tob1(FILE *infile, int ncid, FILE *formfile, int list_line, boolean
 
 	/* Determine number of columns and type of numbers */
         typeline_decode(buffer, coltype,  &ncol);
-        while (!feof(infile)) {
+	cur_line = 0;
+        while (!feof(infile) && ((cur_line < list_line) || (list_line == -1))) {
+	   cur_line++;
            for (i=0; i< ncol; i++) {
               switch (coltype[i])  {
                  case TOB_ULONG:
@@ -234,8 +239,9 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      unsigned   char
          buffer[MAX_BYTES], data[MAX_BYTES*2], myswitch;
      char    txtline[MAX_BYTES];
-     float value, timvalue, txtdata[MAXCOL];
-     size_t   count[2], start[2];
+     float   timvalue;
+     double  value, txtdata[MAXCOL];
+     size_t  count[2], start[2];
      int     array_id,   i,   j,   num_bytes, curr_byte, timcol, rest_byte;
      int     linenum, colnum, status,  numcoldef;
      int     wanted_data, ncol, def_array_id, l_index, l_curr_index;
@@ -256,10 +262,9 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
       def_nc_file(ncid, formfile, coldef,   &numcoldef,   (int)   MAXCOL);
 
     /* (2) Initialize */
-    printline = get_clearstring(20000);
     linenum=0;
     colnum=0;
-    array_id =   -1;
+    array_id = -1;
     have_start = (start_cond.cond_text != NULL);
     have_stop = (stop_cond.cond_text != NULL);
     if (have_start)
@@ -271,7 +276,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
     else 
        stop_data = FALSE;
     if (fake)
-       def_array_id = coldef[0].array_id;
+       if (list_line)
+          def_array_id = 0;
+       else 
+          def_array_id = coldef[0].array_id;
     for (i=0; i < numcoldef; i++)
        coldef[i].got_val = FALSE;
     
@@ -336,6 +344,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                          (list_line == -1)) {
                          if (print_col[colnum-1]) {
                             sprintf(dumstring, "%f ", value);
+                            if (!printline)  printline = get_clearstring(MAXLINELEN);
                             strcat(printline, dumstring);
 			 }
                      }
@@ -343,11 +352,11 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 			   colnum++;
 	     	           valid_sample = TRUE;
                      }
-		     if (colnum > ncol)
+		     if (colnum ==  ncol)
 			     end_txtline = TRUE;
 		     break;
                  case TWO_BYTE:
-                     value =   conv_two_byte((data+curr_byte));
+                     value =  (double) conv_two_byte((data+curr_byte));
                      if ((list_line && linenum   <=   list_line) ||
                          (list_line == -1)) {
                          if (print_col[colnum-1]) {
@@ -363,7 +372,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      break;
                  case FOUR_BYTE_1:
                      if   (bytetype((data+curr_byte+2))   ==   FOUR_BYTE_2) {
-                         value =  conv_four_byte((data+curr_byte), 
+                         value = (double) conv_four_byte((data+curr_byte), 
                              (data+curr_byte+2));
 		         if (colnum > 0) {
 				 colnum++;
@@ -408,7 +417,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      if (printline) {
                        if (((have_start && start_data) && wanted_data) ||
                            (!have_start && wanted_data))
-                          printf("%s\n", printline);
+                           printf("%s\n", printline);
                        free(printline);
                        printline = NULL;
                      }
@@ -423,31 +432,31 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 	    	               switch(coldef[i].nc_type)
 	  	               {
 	  		         case NC_BYTE:
-	  	                    value = (float) NC_FILL_BYTE;
+	  	                    value = (double) NC_FILL_BYTE;
                                     break;
 	  		         case NC_CHAR:
-	  	                    value = (float) NC_FILL_CHAR;
+	  	                    value = (double) NC_FILL_CHAR;
                                     break;
 	  		         case NC_INT:
-	  		            value = (float) NC_FILL_INT;
+	  		            value = (double) NC_FILL_INT;
                                     break;
 	  		         case NC_SHORT:
-	  		            value = (float) NC_FILL_SHORT;
+	  		            value = (double) NC_FILL_SHORT;
                                     break;
 	  		         case NC_FLOAT:
-	  		             value = (float) NC_FILL_FLOAT;
+	  		             value = (double) NC_FILL_FLOAT;
                                      break;
 	  		         case NC_DOUBLE:
-	     	  	             value = (float) NC_FILL_DOUBLE;
+	     	  	             value = (double) NC_FILL_DOUBLE;
                                      break;
                                }
                              } else {
-		               value = coldef[i].missing_value;
+		               value = (double) coldef[i].missing_value;
 			     }
 			     for (j = 0; j< coldef[i].ncol; j++)
                                  coldef[i].values[coldef[i].ncol*
                                                   coldef[i].curr_index+j] = 
-			               (float) value;
+			               (double) value;
                              printf("warning: filling missing value with fake\n");
                              printf("line num = %i variable = %s\n", linenum, coldef[i].name);
                              (coldef[i].index)++;
@@ -491,13 +500,13 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                
                    /* First check if array is full; if so, dump data to
                     * file */
-                     for (i=0; i < numcoldef; i++)
+                   for (i=0; i < numcoldef; i++)
                    if (coldef[i].curr_index == MAX_SAMPLES)   {
                       start[0]=coldef[i].first_index;
                       start[1]=0;
                       count[0]= coldef[i].index   - coldef[i].first_index;
                       count[1]=coldef[i].ncol;
-                      status = nc_put_vara_float(
+                      status = nc_put_vara_double(
                        ncid, coldef[i].nc_var,
                                  start,
                                  count,
@@ -515,20 +524,27 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 		        if (txtfile)
 		           array_id = (int) txtdata[0];
 		        else 
-                           array_id   =   conv_arrayid((data+curr_byte));
+                           array_id = conv_arrayid((data+curr_byte));
 
                      /* Value may be needed for condition checks */
-                     value = (float) array_id;
+		     if (!fake)
+                         value = (double) array_id;
+		     else
+                         value = (double) txtdata[0];
                      reset_cond(loc_cond, n_cond, array_id);
                   
+		     /* Advance one line, if needed make new printline */
                      linenum++;
                      colnum=1;
                      if ((list_line   &&   linenum <= list_line) ||
                            (list_line == -1)) {
 			 free(printline);
-                         printline = get_clearstring(10000);
+                         printline = get_clearstring(MAXLINELEN);
 			 if (print_col[colnum-1]) {
-                            sprintf(dumstring, "%i ", array_id);
+			    if (!fake)  
+                                sprintf(dumstring, "%i ", array_id);
+			    else
+                                sprintf(dumstring, "%f ", value);
                             strcat(printline, dumstring);
                          }
                      }
@@ -606,14 +622,14 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                        coldef[i].values[coldef[i].ncol*
                                         coldef[i].curr_index+
                                         colnum-coldef[i].col_num]
-                           = (float) value;
+                           = (double) value;
                        if (coldef[i].col_num + coldef[i].ncol-1 == colnum) {
                           (coldef[i].index)++;
                           (coldef[i].curr_index)++;
                           coldef[i].got_val = TRUE;
                           if (coldef[i].time_comp)   {
                              if (coldef[i].time_csi_hm) 
-				                    value = conv_hour_min(value);
+				  value = (double) conv_hour_min(value);
                              timcol=coldef[i].time_colnum;
                              if (coldef[timcol].time_got_comp   ==   0)
                                  coldef[timcol].values[coldef[timcol].curr_index] =   0.0;
@@ -628,7 +644,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                        * get data */
                       if (coldef[i].array_id == array_id)   {
                          coldef[i].follow_val[colnum-coldef[i].col_num] =
-                            (float) value;
+                            (double) value;
                          coldef[i].got_follow_val = TRUE;
                       /* This is a line with the array_id to follow:
                        * put previously stored data in array */
@@ -707,7 +723,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
             count[0]=coldef[i].index   - coldef[i].first_index;
             count[0]=(count[0]>0?count[0]:0);
             count[1]=coldef[i].ncol;
-            status   = nc_put_vara_float(ncid, coldef[i].nc_var,
+            status   = nc_put_vara_double(ncid, coldef[i].nc_var,
                                          start, count, coldef[i].values);
             if (status != NC_NOERR)
                  nc_handle_error(status);
@@ -781,12 +797,12 @@ int main(int argc, char   *argv[])
         if ((*argv)[0] == '-') {
             c = (*(argv[0] + 1));
             switch (c) {
-               /* Input file */
+               /* Output file */
                case 'o'   :
                  cmd_arg(&argv, &argc,   2,   outfname);
                  break;
 
-               /* Output file */
+               /* Input file */
                case 'i'   :
                  cmd_arg(&argv, &argc,   2,   infname);
                  break;
@@ -931,10 +947,14 @@ int main(int argc, char   *argv[])
     }
 
     /* (4.2) Input file */
-    if (txtfile) 
-       infile = fopen(infname,   "rt");
-    else
-       infile = fopen(infname,   "rb");
+    if (!strcmp(infname,"-")) 
+       infile = stdin;
+    else {
+       if (txtfile) 
+          infile = fopen(infname,   "rt");
+       else
+          infile = fopen(infname,   "rb");
+    }
     if (infile  == NULL) {
        sprintf(mess,   "cannot open file %s for reading.\n", infname);
        error(mess, (int) FILE_NOT_FOUND);
@@ -992,6 +1012,7 @@ void info(boolean usage)
         if (!usage)
         {
         printf(" -i inputfile     : name of Campbell binary file\n");
+        printf("                    if intputfile is a dash (-), data is read from standard input\n");
         printf(" -o outputfile    : name of netcdf file\n");
         printf(" -f formatfile    : name of file describing format of inputfile\n");
         printf(" -l num_lines     : displays num_lines of the input datafile on screen\n");
@@ -1011,7 +1032,8 @@ void info(boolean usage)
         printf("                    one -k option is allowed\n");
         printf(" -a               : don't use arrayID from file (e.g. because there is no \n");
         printf("                    but assume that all lines have the same ID, which is taken \n");
-        printf("                    from the first definition in the format file\n");
+        printf("                    from the first definition in the format file; only needed when\n");
+        printf("                    writing a netcdf file. If listing to stdout, arrayID is set to 0\n");
         printf(" -h               : displays usage\n");
 	printf("Version: %s\n", CSI2NCDF_VER);
         printf("Copyright (C) 2000-2003 Meteorology and Air Quality Group (Wageningen University), Arnold Moene\n");

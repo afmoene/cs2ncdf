@@ -30,7 +30,7 @@ WEXT=.exe
 NETCDF_LIB = -lnetcdf
 
 # Construct compiler flags
-CFLAGS = $(OPTIMIZATION) $(NETCDF_INCLUDE)
+CFLAGS = $(OPTIMIZATION) $(NETCDF_INCLUDE) 
 LIBNETCDF = $(NETCDF_LIB)
 
 # Commands
