@@ -34,7 +34,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.2.3"
+#define CSI2NCDF_VER "2.2.4"
 #define FTYPE_CSIBIN 1
 #define FTYPE_TXTCSV 2
 #define FTYPE_TXTSSV 3
@@ -220,7 +220,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                          sprintf(dumstring, "%f ", value);
                          strcat(printline, dumstring);
                      }
-		     if (colnum > 0) colnum++;
+		     if (colnum > 0) {
+			   colnum++;
+	     	           valid_sample = TRUE;
+                     }
 		     if (colnum > ncol)
 			     end_txtline = TRUE;
 		     break;

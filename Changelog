@@ -1,6 +1,9 @@
 $Id$
 Changelog for csi2ncdf
 
+Version 2.2.4: 2002-10-29 (arnold.moene@wur.nl
+* conversion of text file to NetCDF did not produce data in file (just 
+  header): fixed.
 Version 2.2.3: 2002-10-8 (arnold.moene@wur.nl)
 * moved writing of data to NetCDF file to one place, after the check
   that a new line has started. Without this the arrays that hold the data
