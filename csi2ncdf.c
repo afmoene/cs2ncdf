@@ -346,8 +346,6 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                        if (coldef[i].array_id == array_id) {
                           if ((l_index != coldef[i].index) ||
                               (l_curr_index != coldef[i].curr_index)) {
-                          printf("l_index = %i, index = %i\n", l_index, coldef[i].index);
-                          printf("l_curr_index = %i, curr_index = %i\n", l_curr_index, coldef[i].curr_index);
                               printf("error: data of various columns not in sync at line num = %i variable = %s\n", linenum, coldef[i].name);
 			      error("Either your file is corrupt (try -s) or this is a bug: please report\n", -1);
                           }
