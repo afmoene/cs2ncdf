@@ -35,7 +35,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.2.11"
+#define CSI2NCDF_VER "2.2.12"
 
 /* ........................................................................
  *
@@ -347,7 +347,6 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
               }
               switch (myswitch)   {
                  case TXT_VALUE:
-		     // We need >= 0 here because in case of fake, we also need the first column !!
 		     if (colnum >= 0) {
 			   colnum++;
 	     	           valid_sample = TRUE;
@@ -364,6 +363,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                             strcat(printline, dumstring);
 			 }
                      }
+		     // We need >= 0 here because in case of fake, we also need the first column !!
 		     break;
                  case TWO_BYTE:
                      value =  (double) conv_two_byte((data+curr_byte));

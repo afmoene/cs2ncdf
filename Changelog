@@ -1,5 +1,7 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.12: 2005-03-24 (arnold.moeen@wur.nl)
+* Now *really* fixed the problem with text files
 Version 2.2.11: 2005-03-23 (arnold.moeen@wur.nl)
 * added logic to take care of textfiles with no array-id  (switch -a) in first column and
 data that are needed from the first column (before we only could get data

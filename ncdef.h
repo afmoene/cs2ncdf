@@ -929,6 +929,7 @@ void txtdecode(char* s, double *txtdata,
 
    col = 0;
    while (strchr(s, delimiter) != NULL) {
+       // We start with a delimiter
        if (s[0] == delimiter) {
           i = 0;
           while (s[i] == delimiter)
@@ -936,16 +937,21 @@ void txtdecode(char* s, double *txtdata,
           pChSpace = &s[i];
           strcpy(s, pChSpace);
        }
+       // There is a delimiter in the line, proceed until found
        if (strchr(s, delimiter) != NULL) {
           i = 0;
           while (s[i] != delimiter)
               i++;
+       // There is no longer a delimiter in the rest of the line, so just find the 
+       // part of the line that contains printable characters.
        } else
-	  i = strlen(s);
+            while (isprint(s[i])) i++;
+
        strncpy(dumstring, s, i);
        dumstring[i]='\0';
+
        // Check if this really can be a number; it might be end of line!
-       if (isprint(dumstring[i-2])) {
+       if (isprint(dumstring[i-1])) {
           txtdata[col] = atof(dumstring);
           s = s + i ;
           col++;
