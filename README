@@ -1,0 +1,194 @@
+$Id$
+
+
+Program  :    csi2ncdf
+Author   :    Arnold Moene (afmoene@hp1.met.wau.nl, Meteorology and
+              Air quality Group, Wageningen University)
+Date     :    July 1999
+
+This README file describes the program csi2ncdf. The purpose of the
+program is to convert a Campbell binary file (final storage format) to
+a netCDF file. The reader of this README file is supposed to be more or
+less familiar with Campbell software and file formats.
+
+The program is invoked as:
+
+  csi2ncdf [-i infile -o outfile -f formatfile] [-l num_lines] -h
+
+The flags have the following meaning:
+  -i infile          name of input (Campbell) file
+  -o outfile         name of output (netcdf) file
+  -f formatfile      name of file that describes the format of the Campbell file
+  -l num_lines       list num_lines lines from input file to screen
+                     if num_lines equals -1, all lines are listed 
+                     (thus the program can be used as a simple 'split' progam)
+  -h                 show help on screen
+Either the combination of flags -i, -o and -f can be used, or the -l  flag.
+
+The rest of this README is dedicated to descriptions of some of the features
+of the Campbell binary files, netcdf files and the format file.
+
+Campbell binary file
+--------------------
+The structure of a Campbell binary file is identical to the structure of a
+Campbell text file: each line of data starts with a so-called array ID.
+This array ID is a combination of the program table from which the data
+have been stored (first digit) and the instruction number that
+set the output flag (rest of arrayID). In the current program this
+array ID is used to identify lines of different content.
+In principle, data stored by different output instructions can have different
+storage intervals (e.g. 10 minutes and 30 minutes). However, in the
+current implementation, the time coordinate of all variables stored to
+a single netcdf file need to have equal length. Therefore, if different
+variables have a different number of samples, they should be stored to
+different netcdf files.
+
+Netcdf file
+-----------
+Netcdf files can be used to store data in a device independent format. 
+The contents of a netcdf file is built from three entities:
+- dimensions
+- variables
+- attributes
+
+Dimensions, variables and an entire file can have attributes (the latter
+are called 'global attributes'). Attributes can be text, numbers, or arrays of
+numbers (e.g. an array of calibration coefficients).
+
+A dimension has a name (e.g. "time", "latitude") and a length. But one dimension
+of unlimited length is allowed in a netcdf file. This is useful if the length
+of a dimension (e.g. time) is not known at the moment the dimension is defined.
+Whereas data that are stored in a regular dimension, are stored contiguously
+(a[1], a[2], ..., a[n] are next to each other in the file), data that are stored
+in the unlimited dimension are stored as single samples, with other data in
+between (a[1], a[2], ..., a[n] are NOT contiguous).
+
+Variables have a name (e.g. "T_wet"), a number of dimensions and a link to
+the dimensions that have been defined above (a profile of "T_wet" can
+have two dimensions: "time" and "height", of which "time" might
+be an unlimited dimension). Further more, a storage type needs to
+be given. This can be:
+- byte         (an unsigned byte)
+- short        (signed 2 byte integer)
+- int          (signed 4 byte integer)
+- float        (4 byte floating point number)
+- double       (8 byte floating point number)
+In the file, variables are 4 byte aligned. Thus if a variable "foo" is an
+array of 5 shorts, it will take up 5*2 + 2 bytes (10 bytes for the data,
+2 for the alignment). If data that are stored in the unlimited dimension
+are individual samples, the alignment will make that each sample
+will take at least 4 bytes (e.g. a time series (with time is the unlimited
+dimension) of 2000 byte values, will take up 4*2000 = 8000 bytes, since each individual sample is 4 byte aligned).
+
+The makers and users of netcdf have agreed on certain 'conventions' with regards
+to the names and contents of some attributes. Relevant for the current
+program are:
+global attributes:
+  title         a string descrbing the contents of the dataset
+  history       a string describing what has been done to the data (in
+                principle this should be an accumulation of all changes
+                applied to the data
+  
+variable attributes:
+  units         a string giving the units; examples as proposed by the makers 
+                of netcdf:
+                  10 kilogram meter second-2
+                  9.8696044 radian2
+                  0.555556 kelvin @ 255.372 (note: this is Fahrenheit)
+                  10.471976 radian second-1
+                  9.80665 meter2 second-2
+                  98636.5 kilogram meter-1 second-2
+                Some counterintuitive ones:
+                  gram for grams (rather than g)
+                  newton for Newtons (rather than N) 
+  long_name     a string with an alternative, more complete name
+  scale_factor  value should be multiplied with ..)
+  add_offset    offset to add to the data (after scaling with scale_factor)
+  valid_min     valid minimum value
+  valid_max     valid minimum value
+  missing_value missing values are indicated by ..
+
+
+Format file 
+-----------
+Comment lines (and comments at the end of a line) are preceded by
+a double slash.
+Values are assigned with a = sign; strings are surrounded by
+double quotes.
+
+
+Available global attributes (valid for the entire dataset/file)
+are: title and history. 
+EXAMPLE
+  title = "my own dataset" history = "axis rotation applied (01-07-99)"
+
+For each of the available array ID's a time coordinate needs
+to be specified with token timevar:
+EXAMPLE:
+   id = 100 timevar="my_time"
+Netcdf allows only one 'unlimited' dimension per file (a dimension
+of which the length is unkown in advance). Therefore, if the Campbell
+file contains data sets with different sampling rates, these should
+be written to different Netcdf files.
+
+Each variable in the input file is defined on one line of this
+format file.
+Required tokens are: 
+  id         array ID
+  col        column number
+  name       name to be used in netcdf file
+  units      string giving the units; examples as 
+             proposed by the makers of netcdf:
+                            10 kilogram meter second-2
+                            9.8696044 radian2
+                            0.555556 kelvin @ 255.372
+                            10.471976 radian second-1
+                            9.80665 meter2 second-2
+                            98636.5 kilogram meter-1 second-2
+EXAMPLE:
+   id = 100 col = 3 name = "u_vel" units="meters second-1"
+
+Optional tokens are: 
+  ncol       number of contiguous columns to use for the data;
+             default: ncol=1; if ncol>1, the variable in the
+             netcdf file gets an extra dimension of length
+             ncol; the name of this dimension should be
+             given with dimname;
+             now col is interpreted as the first
+             column in the Campbell file to get
+             data from; column col+ncol-1 is the
+             last column from which data are assigned to
+             this variable)
+  dimname    name of the second dimension of the current variable
+             (only use when ncol >1)
+  long_name  an alternative, more complete name
+  scale_factor 
+             value should be multiplied with ..
+  add_offset offset to add to the data (after scaling with scale_factor)
+  valid_min  valid minimum value
+  valid_max  valid minimum value
+  missing_value 
+             missing values are indicated by ..
+  type       type to store in: "byte", "short", "int", "float" or
+             "double", default value is "float"); 
+             for the current implementationit does
+             not save disk space to store as "short", since
+             data which are stored in the 'variable dimension'
+             will be 4-byte aligned for each sample: each sample
+             takes up at least 4 bytes, irrespective of the 
+             actual size 
+
+
+An example format file follows below:
+
+// Example format file
+title="first experiments with Campbell eddycorrelation equipment" 
+history="none"
+id = 100 timevar = "time"
+id = 100 col = 2 name="doy" units="days since 1999-01-01" long_name="doy of year" type="short"
+id = 100 col = 3 name="hour_min" units="-" type="short"
+id = 100 col = 4 name="sec" units="-" 
+id = 100 col = 5 ncol = 3 dimname="comp" name="velocity" units="meter second-1" 
+id = 100 col = 8 name="Tsonic" units="celsius" 
+id = 100 col = 9 name="diagnostic" units="-" type="short"
+id = 100 col = 10 name="Krypton" units="mV" 
