@@ -2,12 +2,12 @@ $Id$
 Changelog for csi2ncdf
 
 Version 2.2 : 2002-9-26  (arnold.moene@wur.nl)
-* now can read data also from text files, as long as they're structured as
-  the binary CSI files (the array ID is relevant here)
+* now can read data also from text files, even if they're not structured as
+  the binary CSI files (the array ID is relevant here). Then use the
+  -a switch. So I added support for general text files (without ArrayID)
 * fixed a quirck in do_conv_csi; before it was so that if the
   read action from the binary file would give zero bytes, the routine
   would be exited directly, without writing remaining data.
-* added support for general text files (without ArrayID)
 * fixed weakness in reading of format file: no longer crash if
   string has no closing quote (just ignore it)
 
