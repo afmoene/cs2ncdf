@@ -16,7 +16,16 @@ The program is invoked as:
 
   csi2ncdf [-i infile -o outfile -f formatfile] [-l num_lines] 
            [-c "condition" ....]
-           -s -h
+           -s [-h]
+
+(where the square brackets denote optional switches: valid commandlines are
+for example
+  csi2ncdf -i csi.dat -o foo.nc -f format.con
+  csi2ncdf -l 10
+  csi2ncdf -i csi.dat -o foo.nc -f format.nc -c "A100 C2 > 1400"
+  csi2ncdf -i csi.dat -o foo.nc -f format.con -s
+  csi2ncdf -h
+)
 
 The flags have the following meaning:
   -i infile          name of input (Campbell) file
