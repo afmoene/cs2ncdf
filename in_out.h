@@ -162,7 +162,10 @@ void cmd_arg(char *(*arg[]), int *arg_cnt, int flag_length, char param[])
        space = TRUE;
 
     /* Place argument in parameter */
-    strcpy(param, (*arg[0] + flag_length));
+    if (!space)
+      strcpy(param, (*(arg[0]) + flag_length));
+    else
+      strcpy(param, *(arg[0] + 1));
 
     /* In case flag was separated from paramater by space, decrease argument
      * counter and move one argument forward */
