@@ -1,0 +1,626 @@
+<!doctype article public "-//OASIS//DTD DocBook V4.1//EN" [
+<!ENTITY gpl SYSTEM "gpl.sgml">
+]>
+<article id="readme">
+<articleinfo>
+<title>Documentation for csi2ncdf</title>
+<author><firstname>Arnold</><surname>Moene</></author>
+<revhistory>
+<revision>
+<revnumber>2.1.0</revnumber>
+<date>September 2000 </date>
+<revremark>$Id$</revremark>
+</revision>
+</revhistory>
+<abstract>
+<para>
+This README file describes the program csi2ncdf. The purpose of the
+program is to convert a Campbell binary file (final storage format) to
+a netCDF file. The reader of this README file is supposed to be more or
+less familiar with Campbell software and file formats.
+</para>
+</abstract>
+</articleinfo>
+
+<sect1 id="preamble"><title>Preamble</title>
+<para>
+<screen>
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+	  
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+				    
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+</screen>
+For a complete version of the GPL, see <xref linkend="gpl">.
+</para>
+</sect1>
+<sect1 id="intro"><title> Introduction</title>
+<para>
+The purpose of <command>csi2ncdf</command> is to convert the
+data files that are produced by dataloggers of Campbell Scientific
+(see <ulink url="http://www.campbellsci.com">www.campbellsci.com</ulink>) to NetCDF files
+(see <ulink url="http://www.unidata.ucar.edu/packages/netcdf/">www.unidata.ucar.edu/packages/netcdf</ulink>).
+
+The program is invoked as:
+
+<screen>
+  csi2ncdf [-i infile -o outfile -f formatfile] [-l num_lines] 
+           [-c "condition" ....]
+	   [-b "start condition" ]
+	   [-e "stop condition"]
+           -s [-h]
+</screen>
+
+where the square brackets denote optional switches: valid commandlines are
+for example
+<screen>
+  csi2ncdf -i csi.dat -o foo.nc -f format.con
+  csi2ncdf -l 10
+  csi2ncdf -i csi.dat -o foo.nc -f format.nc -c "A100 C2 > 1400"
+  csi2ncdf -i csi.dat -o foo.nc -f format.con -s
+  csi2ncdf -i csi.dat -o foo.nc -f format.con -b "A100 c2 => 1400" -e "A100 c2 ==1500"
+  csi2ncdf -h
+</screen>
+
+The flags have the following meaning:
+
+<screen>
+-i infile      name of input (Campbell) file 
+-o outfile     name of output (netcdf) file
+-f formatfile  name of file that describes the format of the 
+               Campbell file
+-l num_lines   list num_lines lines from input file to screen
+               if num_lines   equals -1, all lines are listed 
+	       (thus the program can be used as a simple 'split' progam)
+-c condition   only output data when certain conditions are
+               met (see <xref linkend="condition"> on
+               Conditions for a description)
+-b condition   start output when condition is met
+-e condition   stop output when condition is met
+-s             be sloppy about errors in input file: 
+               give warning but not abort
+-h             show help on screen
+</screen>
+Either the combination of flags <option>-i</option>, <option>-o</option> and 
+<option>-f</option> can be used, or the <option>-l</option>  flag.
+
+The rest of this README is dedicated to descriptions of some of the features
+of the Campbell binary files, netcdf files and the format file.
+</para>
+</sect1>
+
+<sect1 id="csi"> <title> Campbell binary file</title>
+<para>
+The structure of a Campbell binary file is identical to the structure of a
+Campbell text file: each line of data starts with a so-called array ID.
+This array ID is a combination of the program table from which the data
+have been stored (first digit) and the instruction number that
+set the output flag (rest of arrayID). In the current program this
+array ID is used to identify lines of different content.
+In principle, data stored by different output instructions can have different
+storage intervals (e.g. 10 minutes and 30 minutes). However, in the
+current implementation, the time coordinate of all variables stored to
+a single netcdf file need to have equal length. Therefore, if different
+variables have a different number of samples, they should be stored to
+different netcdf files.
+</para>
+</sect1>
+
+<sect1 id="netcdf"><title> Netcdf file</title>
+<para>
+Netcdf files can be used to store data in a device independent format. 
+The contents of a netcdf file is built from three entities:
+<itemizedlist>
+<listitem><para>dimensions</para></listitem>
+<listitem><para>variables</para></listitem>
+<listitem><para>attributes</para></listitem>
+</itemizedlist>
+
+Dimensions, variables and an entire file can have attributes (the latter
+are called 'global attributes'). Attributes can be text, numbers, or arrays of
+numbers (e.g. an array of calibration coefficients).
+
+A dimension has a name (e.g. "time", "latitude") and a length. But one dimension
+of unlimited length is allowed in a netcdf file. This is useful if the length
+of a dimension (e.g. time) is not known at the moment the dimension is defined.
+Whereas data that are stored in a regular dimension, are stored contiguously
+(a[1], a[2], ..., a[n] are next to each other in the file), data that are stored
+in the unlimited dimension are stored as single samples, with other data in
+between (a[1], a[2], ..., a[n] are NOT contiguous).
+
+Variables have a name (e.g. "T_wet"), a number of dimensions and a link to
+the dimensions that have been defined above (a profile of "T_wet" can
+have two dimensions: "time" and "height", of which "time" might
+be an unlimited dimension). Further more, a storage type needs to
+be given. This can be:
+<itemizedlist>
+<listitem><para>byte (an unsigned byte)</para></listitem>
+<listitem><para>short        (signed 2 byte integer)</para></listitem>
+<listitem><para>int          (signed 4 byte integer)</para></listitem>
+<listitem><para>float        (4 byte floating point number)</para></listitem>
+<listitem><para>double       (8 byte floating point number)</para></listitem>
+</itemizedlist>
+In the file, variables are 4 byte aligned. Thus if a variable "foo" is an
+array of 5 shorts, it will take up 5*2 + 2 bytes (10 bytes for the data,
+2 for the alignment). If data that are stored in the unlimited dimension
+are individual samples, the alignment will make that each sample
+will take at least 4 bytes (e.g. a time series (with time is the unlimited
+dimension) of 2000 byte values, will take up 4*2000 = 8000 bytes, since each individual sample is 4 byte aligned).
+
+The makers and users of netcdf have agreed on certain 'conventions' with regards
+to the names and contents of some attributes. Relevant for the current
+program are global attributes and variable attributes.
+
+Global attributes are:
+<screen>
+title       a string descrbing the contents of the dataset
+history     a string describing what has been done to the data (in
+            principle this should be an accumulation of all changes
+            applied to the data
+</screen>
+  
+Variable attributes are:
+<screen>
+units         a string giving the units; examples as proposed by the
+              makers of netcdf are (see below)
+long_name     a string with an alternative, more complete name
+scale_factor  value should be multiplied with ...
+add_offset    offset to add to the data (after scaling with 
+              scale_factor)
+valid_min     valid minimum value
+valid_max     valid minimum value
+missing_value missing values are indicated by ..
+</screen>
+
+Examples of units as used in NetCDF files are:
+<itemizedlist>
+		<listitem><para>10 kilogram meter second-1</para></listitem>
+                <listitem><para>9.8696044 radian2</para></listitem>
+                <listitem><para>0.555556 kelvin @ 255.372 (note: this is Fahrenheit)</para></listitem>
+                <listitem><para>10.471976 radian second-1</para></listitem>
+                <listitem><para>9.80665 meter2 second-2</para></listitem>
+                <listitem><para>98636.5 kilogram meter-1 second-2</para></listitem>
+</itemizedlist>
+Some counterintuitive ones:
+<itemizedlist>
+                 <listitem><para>gram for grams (rather than g)</para></listitem>
+                 <listitem><para>newton for Newtons (rather than N)</para></listitem>
+</itemizedlist>
+</para>
+</sect1>
+
+<sect1 id="format"><title> Format file </title>
+<sect2><title>General</title>
+<para>
+Comment lines (and comments at the end of a line) are preceded by
+a double slash.
+Values are assigned with <varname>a = sign</varname>; strings are surrounded by
+double quotes. Maximum line length is 1024 characters (this can simply
+be extended). However, lines can be continued one the next line by
+ending a line with a backslash (the backslash may even appear in
+the middle of string!):
+
+<informalexample>
+<screen>
+bla bla bla \
+bla bla bla 
+</screen>
+will be interpreted as:
+<screen>
+bla bla bla bla bla bla
+</screen>
+</informalexample>
+
+Note that as a consequence a backslash can not appear in a string! This
+is a --small-- limitation of the current implementation.
+
+A line in the format file can be one of three types:
+<itemizedlist>
+<listitem><para>definition of global attributes</para></listitem>
+<listitem><para>definition of a time coordinate</para></listitem>
+<listitem><para>definition of a variable</para></listitem>
+</itemizedlist>
+</para>
+</sect2>
+
+
+<sect2> <title>Definition of global attributes</title>
+<para>
+Available global attributes (valid for the entire dataset/file)
+are: title,  history and remark (of which the first two are
+conventional attributes). According to the conventions, 
+history should be an accumulative list of all conversions applied
+to the data (each program should append its own remarks about what
+it has done to the data). An example is:
+<informalexample>
+<programlisting>
+  title = "my own dataset" history = "axis rotation applied (01-07-99)"
+  remark = "timezone is GMT-6; sonic temperature not working correctly yet"
+</programlisting>
+</informalexample>
+</para>
+</sect2>
+
+
+<sect2><title> Definition of a time coordinate</title>
+<para>
+For each of the available array ID's a time coordinate needs
+to be specified with token <varname>timevar</varname>:
+<informalexample>
+<programlisting>
+   id = 100 timevar="my_time"
+</programlisting>
+</informalexample>
+
+Netcdf allows only one 'unlimited' dimension per file (a dimension
+of which the length is unkown in advance). Therefore, if the Campbell
+file contains data sets with different sampling rates, these should
+be written to different Netcdf files. With the present program, there is
+a workaround for this: let the data from an arrayID that has a 
+storage interval different from the default one follow an arrayID
+that has the default storage interval. How does this work?
+Suppose we have a file with the following structure:
+
+<programlisting>
+100 182 1420
+200 2.34 3.45 2.34 5.42 5.64
+200 3.45 5.44 5.45 4.45 5.56
+200 5.45 5.67 5.56 5.45 3.45
+200 4.34 5.67 6.67 6.67 7.78
+100 182 1430
+200 2.34 5.68 6.67 7.78 8.89
+....
+</programlisting>
+
+If we want the data from arrayID 100 to be saved along with the data from
+arrayID 200, we can let arrayID follow arrayID 200 (see 
+<varname>follow_id</varname> token below). 
+The values to be stored are updated whenever a line with arrayID 200
+is encountered. If the first line with arrayID 200 is encountered
+after the first line of arrayID 100, the value of <varname>missing_value</varname>
+is
+stored (therefore, <varname>missing_value</varname> is a required token when 
+<varname>follow_id</varname> is defined, see below).
+
+Note that the definitions of time variables should come before the use of
+that specific array ID for a variable definition.
+
+If a variable exists which has the same name as the time dimension, the values
+of that variable will be interpreted (by programs using the file) as the values
+along the dimension axis (in case of time: if the time dimension is called 
+"foo" and a variable exists with the same name, the value of the time dimension "foo"
+will be taken from the variable "foo"). 
+It is also possible to <emphasis>construct</emphasis> a time variable (see below).
+</para>
+</sect2>
+
+<sect2> <title>Definition of a variable</title>
+<para>
+Each variable in the input file is defined on one line of this
+format file. Some tokens are required, others are optional.
+
+Required tokens are:
+
+<screen>
+id              array ID
+col_num         column number
+var_name        name to be used in netcdf file
+units           string giving the units (see <xref linkend="netcdf">)
+</screen>
+
+An example of a line with only required tokens is:
+<informalexample>
+<programlisting>
+   id = 100 col_num = 3 name = "u_vel" units="meters second-1"
+</programlisting>
+</informalexample>
+
+Optional tokens are:
+
+<screen>
+ncol            number of contiguous columns to use for the data;
+                default: ncol=1; if ncol >1, the variable in the
+                netcdf file gets an extra dimension of length
+                ncol; the name of this dimension should be
+                given with dimname; now col is interpreted as the 
+	        first column in the Campbell file to get
+                data from; column col+ncol-1 is the
+                last column from which data are assigned to
+                this variable)
+dim_name        name of the second dimension of the current variable
+                (only use when <varname>ncol</varname> >1; in that 
+		case it is a required token)
+long_name       an alternative, more complete name
+scale_factor    value should be multiplied with ..
+add_offset      offset to add to the data (after scaling with
+                scale_factor)
+valid_min       valid minimum value
+valid_max       valid minimum value
+missing_value   missing values are indicated by ..
+type            type to store in: "byte", "short", "int", "float" or
+                "double", default value is "float"); 
+                for the current implementationit does
+                not save disk space to store as "short", since
+                data which are stored in the 'variable dimension'
+                will be 4-byte aligned for each sample: each sample
+                takes up at least 4 bytes, irrespective of the 
+                actual size 
+follow_id       let data with the current arrayID (defined with 
+                'id ='  token) be stored with the same frequency as 
+		the data with arrayID defined with 'follow_id ='; 
+		use of follow_id requires the definition of a
+		missing_value, since for the first samples
+                to be stored, the actual value of the data may not 
+                be known.
+</screen>
+
+</para>
+</sect2>
+
+<sect2> <title>Construction of a time variable</title>
+<para>
+With the current program it is possible to construct a time variable from
+columns in the input file. This means that the program makes a new variable
+with the name given after 'timevar =' in the format file. Variable can have 
+a number of attributes.  For such a time variable, attributes that can be used
+are long_name and units and type (see before).
+An example declaration would be
+<informalexample>
+<programlisting>
+   id = 100 timevar="my_time" long_name="decimal hours since midnight" 
+</programlisting>
+</informalexample>
+
+The value of the time variable is contracted by summing values of columns that
+have been defined to participate in the definition of the time variable 
+(using special tokens).
+
+For the construction of the time variable extra tokens are available for the definition of variables. These are given in the below:
+
+<screen>
+time_offset       subtract this (float) value, from the value read 
+                  from file
+time_mult         multiply the difference of the value read from file
+                  and time_offset with this (float) value (it is
+		  required to define that this variable is part of 
+		  the time definition !!)
+time_csi_hm       if time_csi_hm = 1, this is a Campbell 
+                  hour/minutes column; this implies that it is 
+		  converted to decimal hours, before offset and 
+		  multiply are applied.
+</screen>
+
+<informalexample>
+<programlisting>
+  id = 100 timevar="my_time" long_name = "hours since midnight"
+  id = 100 col_num=2 name="doy"
+  id = 100 col_num=3 name="hour_min" time_mult=1.0 time_csi_hm=1
+  id = 100 col_num=4 name="secs" time_mult=2.777e-4 // 3600 seconds in the hour
+</programlisting>
+</informalexample>
+
+This fragment of a format file will result in an extra variable named "my_time" in the file.
+This will be constructed as the sum of column 3 (converted to decimal hours) 
+and column 4 (converted to decimal hours as well). This construction can
+also be used when the time information is partly contained in 'following 
+variables'.
+</para>
+</sect2>
+
+
+
+<sect2> <title>Summary of tokens in format file</title>
+<para>
+Below an overview of valid tokens is given:
+
+<screen>
+title          NetCDF global attribute: title
+history        NetCDF global attribute: history
+remark         NetCDF global attribute: remark
+timevar        NetCDF name of time dimension
+id             array ID in CSI binary file
+col_num        column number in CSI binary file
+var_name       NetCDF name to be used in netcdf file
+units          NetCDF string giving the units; 
+ncol           number of CSI contiguous columns to use for 
+               the data;
+dim_name       NetCDF name of the second dimension of the
+               current variable
+long_name      NetCDF attribute: an alternative, more complete name
+scale_factor   NetCDF attribute:  value should be multiplied with ..
+add_offset     NetCDF attribute: offset to add to the data (after
+               scaling with scale_factor)
+valid_min      NetCDF attribute: valid minimum value
+valid_max      NetCDF attribute: valid minimum value
+missing_value  NetCDF attribute:  missing values are indicated by ..
+type           NetCDF attribute: type to store in
+follow_id      let data with the current CSI arrayID (defined with 
+               'id ='  token) be stored with the same frequency as 
+               the data with arrayID defined with 'follow_id ='; 
+time_offset    subtract this (float) value, from the value read from
+               file
+time_mult      multiply the difference of the value read from file 
+               and time_offset with this (float) value (required to
+	       define that this variable is part of the time definition)
+time_csi_hm    if time_csi_hm = 1, this is a Campbell hour/minutes 
+               column; this implies that it is converted to decimal 
+	       hours, before offset and multiply are applied.
+</screen>
+
+
+<example><title>An example format file</title>
+<programlisting>
+// Example format file (which has nothing to do with the example data
+// shown before) !!
+title="first experiments with Campbell eddycorrelation equipment" 
+history="none"
+id = 100 timevar = "time"
+id = 200 col_num = 2 var_name="doy" units="days since 1999-01-01" follow_id=100 missing_value=-1000
+id = 100 col_num = 3 var_name="hour_min" units="-" type="short"
+id = 100 col_num = 4 var_name="sec" units="-" 
+id = 100 col_num = 5 ncol = 3 dimname="comp" var_name="velocity" units="meter second-1" 
+id = 100 col_num = 8 var_var_name="Tsonic" units="celsius" 
+id = 100 col_num = 9 var_name="diagnostic" units="-" type="short"
+id = 100 col_num = 10 name="Krypton" units="mV" 
+</programlisting>
+</example>
+</sect2>
+</sect1>
+
+<sect1 id="condition"><title> Conditions</title>
+<sect2> <title> General </title>
+<para>
+As of version 2.0 of csi2ncdf it is possible to control the output of
+data through conditions. This is mainly intended to be able to select 
+data based on time (to split large files into e.g. half-hourly files).
+But it can also be used to select data with a given wind direction,
+temperature .....
+
+An example of a simple condition as it would appear on the command line is
+
+<screen>
+  -c "A100 C2 > 1400"
+</screen>
+
+It consists of three parts:
+<itemizedlist>
+<listitem><para>
+A reference to a column in a CSI file. Since a CSI file can contain data
+  from different output instructions (containing different kinds of data
+  in a given column) the column number is further indicated with the
+  arrayID. The arrayID is preceded by a 'a' or 'A', whereas the column
+  number is preceded by a 'c' or a 'C'. Thus, in the example, the data
+  with arrayID 100 and column number 2 are referenced.
+</para>
+</listitem>
+<listitem>
+<para>
+A comparison operator. Valid tokens are:
+<itemizedlist>
+  <listitem><para>==       : equal </para></listitem>
+  <listitem><para>>        : greater than </para></listitem>
+  <listitem><para><        : less than </para></listitem>
+  <listitem><para>>= or => : greater than or equal </para></listitem>
+  <listitem><para><= or =< : less than or equal </para></listitem>
+  <listitem><para>!=       : not equal (dangerous, since all comparisons are done on floats) </para></listitem>
+</itemizedlist>
+</para>
+</listitem>
+<listitem>
+<para>
+ A value used in the comparison. This number is always converted to a 
+  floating point number, so be careful with (un)equality comparisons.
+</para>
+</listitem>
+</itemizedlist>
+
+Conditions can be combined in a AND (&&) or OR (||) way:
+
+<screen>
+  -c "A100 C2 > 1400 && A100 C2 < 1500"
+</screen>
+
+means data with arrayID 100 in column 2 should be greater than 1400 AND
+less than 1500.
+
+<screen>
+  -c "A100 C3 > 2 || A100 C4 > 5"
+</screen>
+
+means that data with array ID 100, column 3 should be greater than 2
+OR data with array ID 100, column 4 should be greater than 5
+(the number of sub conditions is now limited to 100; not a problem,
+I suppose :) ).
+
+From the examples one can see that in one main conditions (the string
+following <option>-c</option>) sub conditions with varying columns 
+can be used. One can
+also access data from an arrayID that is not used for the time variable
+(see examples above with so-called 'following variables'). These data
+even do not need to be stored in the NetCDF file. If we take again the following
+example fragment:
+
+<programlisting>
+100 182 1420
+200 2.34 3.45 2.34 5.42 5.64
+200 3.45 5.44 5.45 4.45 5.56
+200 5.45 5.67 5.56 5.45 3.45
+200 4.34 5.67 6.67 6.67 7.78
+100 182 1430
+200 2.34 5.68 6.67 7.78 8.89
+....
+</programlisting>
+
+the condition <option>-c "A100 c3 > 1425"</option> will cause output to start after the line
+'100 182 1430' has been read. It will start all requested output, also
+that of data with array ID 200 (in fact, once a condition is TRUE, it remains
+so until data have been read that make the condition FALSE).
+
+On the command line more than one condition can be given (a maximum of 100 is
+implemented now). These conditions are combined with AND (i.e. all conditions
+should be true in order to cause output of data).
+
+The sub conditions within a main condition (i.e. the string that follows <option>-c</option>)
+are evaluated from left to right. So e.g.
+
+<screen>
+   -c "A100 c3 > 100 && A100 c3 < 200 || A100 c4 > 1"
+</screen>
+is evaluated as:
+<screen>
+   (((A100c3 > 100) && (A100c3 < 200)) || (A100 c4 > 1))
+</screen>
+</para>
+</sect2>
+
+<sect2> <title> Start and stop conditions </title>
+<para>
+As of version 2.1.0 of csi2ncdf also start and stop conditions can be given
+(switch <option>-b</option>  and <option>-e</option> respectively). The effect of these conditions (which 
+have the same syntax rules as the normal conditions) is:
+<itemizedlist>
+<listitem><para>
+when a start condition is present, only start output when the condition 
+is true; from that point on the output is continued
+</para>
+</listitem>
+<listitem>
+<para>
+when a stop condition is present, continue output up to the point
+where the condition becomes true.
+</para>
+</listitem>
+<listitem>
+<para>
+and of course the logical combination of a start and stop condition ;)
+</para>
+</listitem>
+</itemizedlist>
+
+Start and/or stop conditions can be combine with the normal conditions:
+even if according to the start and/or stop condition output should
+be done, you can suppress it by a normal condition (e.g. only the
+positive values between 14 and 15 o'clock).
+</para>
+</sect2>
+</sect1>
+
+<sect1 id="gpl"><title>License</title>
+<para>
+
+<screen>
+&gpl;
+</screen>
+
+</para>
+</sect1>
+
+</article>
