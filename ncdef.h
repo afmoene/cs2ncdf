@@ -713,6 +713,7 @@ boolean
       (*(coldef+*numcoldef)).index = 0;
       (*(coldef+*numcoldef)).curr_index = 0;
       (*(coldef+*numcoldef)).first_index = 0;
+      (*(coldef+*numcoldef)).time_got_comp = 0;
       
       /* Tell all time components about the current column number */
       for (i=0; i<*numcoldef; i++) {

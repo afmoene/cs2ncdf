@@ -1,4 +1,4 @@
-/* $Revision$ */
+/* $Id$ */
 #include   <stdlib.h>
 #include   <stdio.h>
 #include   <string.h>
@@ -12,7 +12,7 @@
 #include   "error.h"
 
 #define MAXCOL   100
-#define CSI2NCDF_VER "1.2.1"
+#define CSI2NCDF_VER "1.2.2"
 
 /* ........................................................................
  *
