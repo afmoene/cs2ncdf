@@ -7,7 +7,7 @@
 #define NO_VALUE -9991
 #define MAX_SAMPLES 64
 #define MAX_LINELENGTH  1024
-#define MAX_STRINGLENGTH 1024
+#define MAX_STRINGLENGTH 20000
 
 /* ........................................................................
  * type declarations
@@ -34,17 +34,29 @@ typedef struct {
   int curr_index;
   size_t first_index;
   int ncol;
+  boolean time_comp;
+  boolean time_csi_hm;
+  float time_mult;
+  float time_offset;
+  int time_colnum;
+  boolean i_am_time;
+  int time_num_comp;
+  int time_got_comp;
 } column_def;
 
 typedef struct {
   char *title;
   char *history;
+  char *remark;
 } global_def;
 
 typedef struct {
   char *name;
   int  array_id; 
   int  nc_dim; 
+  int time_colnum;
+  char *unit;
+  char *long_name;
 } time_def;
 
 
@@ -63,6 +75,19 @@ char *stringp, *stringp2, *outstring;
            }
 }
 
+char *non_space(char *string, const char *word, char letter) {
+   int i;
+
+   for (i = strlen(word); i <strlen(string); i++) {
+     if (!isspace(string[i])) {
+         if (string[i] == letter)
+            return (string+i+1);
+         else
+            return NULL;
+      }
+   }
+   return NULL;
+}
 
 void nc_handle_error(int nc_error) {
 char mess[MAX_STRINGLENGTH];
@@ -71,6 +96,79 @@ char mess[MAX_STRINGLENGTH];
       error(mess, nc_error);
    }
 }
+
+boolean get_int(char *line, const char *token, const char *name, int *value) {
+
+  char *stringp;
+  char mess[MAX_STRINGLENGTH];
+  int  status;
+
+  if ( (stringp = strstr(line, token)) ) {
+      if ( (stringp = non_space(stringp, token, '=')) ) {
+           status = sscanf(stringp, "%i", value);
+           if (status != 1) {
+              sprintf(mess, "could not convert %s\n", name);
+              error(mess, -1);
+              return FALSE;
+	   } else
+              return TRUE;
+      }
+  }
+  return FALSE;
+}
+
+boolean get_float(char *line, const char *token, const char *name, float *value) {
+
+  char *stringp;
+  char mess[MAX_STRINGLENGTH];
+  char dumstring[MAX_STRINGLENGTH];
+  int  status;
+
+  if ( (stringp = strstr(line, token)) ) {
+        if ( (stringp = non_space(stringp, token, '=')) ) {
+           status = sscanf(stringp, "%s", dumstring);
+           *value = atof(dumstring);
+           if (status != 1) {
+              sprintf(mess, "could not convert %s\n", name);
+              error(mess, -1);
+              return FALSE;
+           } else
+              return TRUE;
+        }
+  }
+  return FALSE;
+}
+
+
+
+boolean get_string(char *line, const char *token, 
+                   const char *name, char *value) {
+   char *stringp;
+   char mess[MAX_STRINGLENGTH];
+
+   if ( (stringp = strstr(line, token)) ) {
+       if ( (stringp = non_space(stringp, token, '=')) ) {
+          if (!strcpy(value, quoted_string(stringp))) {
+	      sprintf(mess, "could not convert %s\n", name);
+              error(mess, -1);
+	      return FALSE;
+	  } else
+              return TRUE;
+       }
+   }
+   return FALSE;
+}
+
+char *get_clearstring(num) {
+   char *stringp;
+   int   i;
+
+   stringp = (char *) malloc(num*sizeof(char));
+   for (i=0; i<num-1;i++)
+      stringp[i] = '\0';
+   return stringp;
+}
+
 /* ........................................................................
  * Function : scan_line
  * Purpose  : Scan one line of the format file
@@ -91,6 +189,10 @@ char mess[MAX_STRINGLENGTH];
  *            ncol             out  number of contiguous columns
  *            dimname          out  name for extra dimension
  *            follow_id        out  which array_id to follow
+ *            time_comp        out  is this part of te time definition
+ *            time_cs_hm       out  is this the Campbell hour/minutes time?
+ *            time_mult        out  multiplier to apply before adding to time column
+ *            time_offset      out  offset to apply before multiplier
  * Return value: 1 if line was read succesfully, -1 of 0 otherwise
  *
  * Method   : 
@@ -104,11 +206,17 @@ int scan_line(FILE *formfile, int *id, int *col,
               float *missing_value, int *type,
               global_def *globaldef,
 	      char *timename, int *ncol, char *dimname,
-	      int *follow_id) {
+	      int *follow_id,
+	      boolean *time_comp, boolean *time_csi_hm,
+	      float *time_mult, float *time_offset) {
 
-char *line, *linecopy, *stringp, dumline[MAX_LINELENGTH],
-     dumstring[MAX_STRINGLENGTH], mess[2*MAX_LINELENGTH], *slashp;
-int  pos, status, i, j;
+char *line = NULL,
+     *linecopy = NULL,
+     *stringp = NULL,
+     dumline[MAX_LINELENGTH],
+     dumstring[MAX_STRINGLENGTH], mess[2*MAX_LINELENGTH],
+     *slashp = NULL;
+int  pos, status, i, j, dum_int;
 boolean
      otherline = TRUE,
      id_found = FALSE,
@@ -125,266 +233,151 @@ boolean
      type_found = FALSE,
      ncol_found = FALSE,
      dimname_found = FALSE,
-     follow_id_found = FALSE;
+     follow_id_found = FALSE,
+     time_mult_found = FALSE,
+     time_offset_found = FALSE,
+     time_csi_hm_found = FALSE;
 
     /* (1) Get one line of text */
-    line = (char *) malloc(MAX_LINELENGTH*sizeof(char));
-    for (i=0; i<MAX_LINELENGTH; i++) {
-       line[i] = '\0';
-    }
+    line = get_clearstring(MAX_LINELENGTH);
     while (otherline) {
        if (!fgets(dumline, sizeof(dumline), formfile)) return 0;
        if (!(slashp = strrchr(dumline,'\\')))
           otherline = FALSE;
-       linecopy = (char *) malloc(
-                    (strlen(line)+strlen(dumline)-1)*sizeof(char));
+       linecopy = get_clearstring(strlen(line)+strlen(dumline));
        strcpy(linecopy, line);
        strncat(linecopy, dumline, (slashp-dumline)/sizeof(char));
        free(line);
-       line = (char *) malloc(strlen(linecopy)*sizeof(char));
+       line = get_clearstring(strlen(linecopy));
        strcpy(line, linecopy);
     }
 
 
     /* (2) Strip any comments */
-    pos = strcspn(line, "//");
-    strncpy(linecopy, line, pos);
-    if (!linecopy) return 0;
+    if (strstr(line, "//")) {
+       pos = (int) (line-strstr(line, "//"));
+       if (!pos) {
+          free(line);
+          return 0;
+       }
+    } else
+       pos = strlen(line);
+    linecopy[0]='\0';
+    strncpy(linecopy, line, pos+1);
+
+    /* line should be freed, but get SIGABORT so, just leave it */
+    /* free(line);*/
+    if (!strlen(linecopy)) return 0;
 
     /* (3) Get info from line */
     /* (3.1) Array ID */
-    if ( (stringp = strstr(linecopy, "id")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           status = sscanf(stringp, "=%i", id);
-           if (status != 1) 
-              error("could not convert array ID", -1);
-           else
-              id_found = TRUE;
-        } else {
-              error("could not find = sign for array ID", -1);
-        }
-    }
+    id_found = get_int(linecopy, "id", "array ID", id);
 
     /* (3.2) Column number */
-    if ( (stringp = strstr(linecopy, "col")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           status = sscanf(stringp, "=%i", col);
-           if (status != 1) 
-              error("could not convert column number ", -1);
-           else
-              col_found = TRUE;
-        } else {
-              error("could not find = sign for column number", -1);
-        }
-    }
+    col_found = get_int(linecopy, "col_num", "column number", col);
 
     /* (3.3) Name */
-    if ( (stringp = strstr(linecopy, "var_name")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           if (!strcpy(name, quoted_string(stringp))) 
-              error("could not convert name", -1);
-           else
-              name_found = TRUE;
-        } else {
-              error("could not find = sign for name", -1);
-        }
-    }
+    name_found = get_string(linecopy, "var_name", "name", name);
 
     /* (3.4) Units attribute */
-    if ( (stringp = strstr(linecopy, "units")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           if (!strcpy(unit, quoted_string(stringp))) 
-              error("could not convert units", -1);
-           else
-              unit_found = TRUE;
-        } else {
-              error("could not find = sign for units", -1);
-        }
-    }
+    unit_found = get_string(linecopy, "units", "units", unit);
 
     /* (3.5)  Long name attribute */
-    if ( (stringp = strstr(linecopy, "long_name")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           if (!strcpy(long_name, quoted_string(stringp))) 
-              error("could not convert long_name ", -1);
-           else 
-              long_name_found = TRUE;
-        } else {
-              error("could not find = sign for long_name", -1);
-        }
-    }
+    long_name_found = get_string(linecopy, "long_name","long_name", long_name);
 
     /* (3.6)  Scale factor attribute */
-    if ( (stringp = strstr(linecopy, "scale_factor")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           status = sscanf(stringp, "= %s", dumstring);
-           *scale_factor = atof(dumstring);
-           if (status != 1) 
-              error("could not convert scale_factor", -1);
-           else
-              scale_factor_found = TRUE;
-        } else {
-              error("could not find = sign for scale_factor", -1);
-        }
-    }
+    scale_factor_found = get_float(linecopy, "scale_factor", 
+                                   "scale_factor", scale_factor);
 
     /* (3.7)  Offset attribute */
-    if ( (stringp = strstr(linecopy, "add_offset")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           status = sscanf(stringp, "= %s", dumstring);
-           *add_offset = atof(dumstring);
-           if (status != 1) 
-              error("could not convert offset", -1);
-           else
-              add_offset_found = TRUE;
-        } else {
-              error("could not find = sign for offset", -1);
-        }
-    }
+    add_offset_found = get_float(linecopy, "add_offset", 
+                                   "offset", add_offset);
 
     /* (3.8)  Valid_min attribute */
-    if ( (stringp = strstr(linecopy, "valid_min")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           status = sscanf(stringp, "= %s", dumstring);
-           *valid_min = atof(dumstring);
-           if (status != 1) 
-              error("could not convert valid_min", -1);
-           else
-              valid_min_found = TRUE;
-        } else {
-              error("could not find = sign for valid_min", -1);
-        }
-    }
+    valid_min_found = get_float(linecopy, "valid_min", 
+                                   "valid_min", valid_min);
 
     /* (3.9)  Valid_max attribute */
-    if ( (stringp = strstr(linecopy, "valid_max")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           status = sscanf(stringp, "= %s", dumstring);
-           *valid_max = atof(dumstring);
-           if (status != 1) 
-              error("could not convert valid_max", -1);
-           else
-              valid_max_found = TRUE;
-        } else {
-              error("could not find = sign for valid_max", -1);
-        }
-    }
+    valid_max_found = get_float(linecopy, "valid_max", 
+                                   "valid_max", valid_max);
 
     /* (3.10)  Missing_value attribute */
-    if ( (stringp = strstr(linecopy, "missing_value")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           status = sscanf(stringp, "= %s", dumstring);
-           *missing_value = atof(dumstring);
-           if (status != 1) 
-              error("could not convert missing_value", -1);
-           else
-              missing_value_found = TRUE;
-        } else {
-              error("could not find = sign for missing_value", -1);
-        }
-    }
+    missing_value_found = get_float(linecopy, "missing_value", 
+                                   "missing_value", missing_value);
 
     /* (3.11)  Variable type */
-    if ( (stringp = strstr(linecopy, "type")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           status = sscanf(stringp, "= %s", dumstring);
-           if (!strcpy(dumstring, quoted_string(stringp))) 
-              error("could not convert type", -1);
-           else
-              type_found= TRUE;
-	   if (!strcmp(dumstring, "float"))
-	       *type = NC_FLOAT;
-	   else if (!strcmp(dumstring, "int"))
-	       *type = NC_INT;
-	   else if (!strcmp(dumstring, "short"))
-	       *type = NC_SHORT;
-	   else if (!strcmp(dumstring, "double"))
-	       *type = NC_DOUBLE;
-	   else if (!strcmp(dumstring, "char"))
-	       *type = NC_CHAR;
-	   else if (!strcmp(dumstring, "byte"))
-	       *type = NC_BYTE;
-	   else {
-	       error("unkown type",-1);
-	   }
-        } else {
-              error("could not find = sign for type", -1);
-        }
+    type_found = get_string(linecopy, "type", "type", dumstring);
+    if (type_found) {
+        if (!strcmp(dumstring, "float"))
+            *type = NC_FLOAT;
+        else if (!strcmp(dumstring, "int"))
+            *type = NC_INT;
+        else if (!strcmp(dumstring, "short"))
+            *type = NC_SHORT;
+        else if (!strcmp(dumstring, "double"))
+            *type = NC_DOUBLE;
+        else if (!strcmp(dumstring, "char"))
+            *type = NC_CHAR;
+        else if (!strcmp(dumstring, "byte"))
+            *type = NC_BYTE;
+        else {
+	    type_found = FALSE;
+            error("unkown type",-1);
+	}
     }
-
+    
     /* (3.12) Number of columns */
-    if ( (stringp = strstr(linecopy, "ncol")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           status = sscanf(stringp, "=%i", ncol);
-           if (status != 1) 
-              error("could not convert number of columns", -1);
-           else
-              ncol_found = TRUE;
-        } else {
-              error("could not find = sign for number of columns", -1);
-        }
-    }
+    ncol_found = get_int(linecopy, "ncol", "number of columns", ncol);
 
     /* (3.13)  Name of extra dimension */
-    if ( (stringp = strstr(linecopy, "dim_name")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           if (!strcpy(dimname, quoted_string(stringp)))
-              error("could not convert name of extra dimension ", -1);
-           else 
-              dimname_found = TRUE;
-        } else {
-              error("could not find = sign for name of extra dimension", -1);
-        }
-    }
+    dimname_found = get_string(linecopy, "dim_name", "name of extra dimension", 
+                    dimname);
 
     /* (3.14) Follow array ID */
-    if ( (stringp = strstr(linecopy, "follow_id")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           status = sscanf(stringp, "=%i", follow_id);
-           if (status != 1) 
-              error("could not convert follow array ID", -1);
-           else
-              follow_id_found = TRUE;
-        } else {
-              error("could not find = sign for follow array ID", -1);
-        }
-    }
+    follow_id_found = get_int(linecopy, "follow_id", "follow array ID", 
+                              follow_id);
+    
+    /* (3.15) Time multiplier */
+    time_mult_found = get_float(linecopy, "time_mult", "time_mult", time_mult);
+    if (time_mult_found) 
+        *time_comp = TRUE;
 
+    /* (3.16) Time offset */
+    time_offset_found = get_float(linecopy, "time_offset", "time_offset", 
+                                  time_offset);
+
+    /* (3.17)  CSI hour/minutes ? */
+    time_csi_hm_found = get_int(linecopy, "time_csi_hm", "time_csi_hm", 
+                                  &dum_int);
+    if (time_csi_hm_found && (dum_int = 1)) 
+         *time_csi_hm = TRUE;
+    
 
     /* (4)  Global attributes */
     /* (4.1)  Title attribute */
-    if ( (stringp = strstr(linecopy, "title")) )  {
-        if ( (stringp = strstr(stringp, "=")) ) {
+    if (get_string(linecopy, "title", "title", dumstring)) {
            (*globaldef).title =  
-                   (char *) malloc(strlen(quoted_string(stringp)));
-           strcpy((*globaldef).title, quoted_string(stringp));
-        } else {
-              error("could not find = sign for title", -1);
-        }
+                   (char *) malloc(strlen(dumstring));
+           strcpy((*globaldef).title, dumstring);
     }
 
     /* (4.2)  History attribute */
-    if ( (stringp = strstr(linecopy, "history")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
+    if (get_string(linecopy, "history", "history", dumstring)) {
            (*globaldef).history =  
-                   (char *) malloc(strlen(quoted_string(stringp)));
-           strcpy((*globaldef).history, quoted_string(stringp));
-        } else {
-              error("could not find = sign for title", -1);
-        }
+                   (char *) malloc(strlen(dumstring));
+           strcpy((*globaldef).history, dumstring);
     }
 
-    /* (5)  Time coordinate */
-    if ( (stringp = strstr(linecopy, "timevar")) ) {
-        if ( (stringp = strstr(stringp, "=")) ) {
-           if (!strcpy(timename, quoted_string(stringp))) 
-              error("could not convert timevar ", -1);
-	   else
-	      time_found = TRUE;
-        } else {
-              error("could not find = sign for name of time coordinate", -1);
-        }
+    /* (4.3)  Remark attribute */
+    if (get_string(linecopy, "remark", "remark", dumstring)) {
+           (*globaldef).remark =  
+                   (char *) malloc(strlen(dumstring));
+           strcpy((*globaldef).remark, dumstring);
     }
+
+    
+    /* (5)  Time coordinate */
+    time_found = get_string(linecopy, "timevar", "timevar", timename);
 
      if (ncol_found && !dimname_found) {
         error("number of columns defined, but no name for extra dimension",-1);
@@ -392,6 +385,10 @@ boolean
 
      if (follow_id_found && !missing_value_found) {
         error("when follow_id defined, also missing_value should be defined",-1);
+     }
+     
+     if (time_offset_found && !time_mult_found)  {
+         error("does not make sense to define time_offset, when not defining time_mult",-1);
      }
 
      if (id_found || col_found || name_found || unit_found) {
@@ -426,31 +423,37 @@ void def_nc_file(int ncid, FILE *formfile,
                  column_def *coldef, int *numcoldef, int maxnumcoldef) {
 int 
     status,
-    i, j,arrayid, column, numtimedef, type, dimid, ncol, 
-    newdim, ndims, follow_id, search_id;
+    i, j,arrayid, column, type, dimid, ncol, 
+    newdim, ndims, follow_id, search_id, num_time_comp;
 char
     name[MAX_STRINGLENGTH], unit[MAX_STRINGLENGTH], long_name[MAX_STRINGLENGTH],
     timename[MAX_STRINGLENGTH], mess[MAX_STRINGLENGTH], dimname[MAX_STRINGLENGTH];
 float
-    scale_factor, add_offset, valid_min, valid_max, missing_value;
+    scale_factor, add_offset, valid_min, valid_max, missing_value,
+    time_mult, time_offset;
 global_def
     globaldef;
 time_def
-    timedef[100];
+    timedef;
 boolean
-    found_timedim;
+    found_timedim, time_comp, time_csi_hm, i_am_time;
 
 
 
     /* (1) Initialize */
     *numcoldef = 0;
-    numtimedef = 0;
+    timedef.array_id = -1;
+    num_time_comp = 0;
+    globaldef.title = NULL;
+    globaldef.history = NULL;
+    globaldef.remark = NULL;
 
     /* (2) Loop format file */
     while (!feof(formfile)) {
        /* (2.1) Initialize */
        *long_name = '\0';
        *timename = '\0';
+       *unit = '\0';
        scale_factor = NO_VALUE;
        add_offset = NO_VALUE;
        valid_min = NO_VALUE;
@@ -459,44 +462,59 @@ boolean
        type = NC_FLOAT;
        ncol = 1;
        follow_id = -1;
+       time_comp = FALSE;
+       time_csi_hm = FALSE;
+       time_mult = NO_VALUE;
+       time_offset = 0.0;
+       i_am_time = FALSE;
        
        /* (2.2) Get info from a line */
        if (scan_line(formfile, &arrayid, &column, name, unit, 
                      long_name, &scale_factor, &add_offset,
                      &valid_min, &valid_max, &missing_value, &type,
                      &globaldef, timename, &ncol, dimname,
-		     &follow_id)) {
+		     &follow_id, &time_comp, &time_csi_hm,
+		     &time_mult, &time_offset)) {
 
 	  /* 2.2.1) This is a time coordinate definition */
 	  if (strlen(timename)) {
               /* Check whether a time coordinate was defined already for
                * this Array ID */
-	      for (i=0; i<numtimedef; i++) {
-	          if (timedef[i].array_id ==arrayid) {
+	      if (timedef.array_id > 0) {
 		     sprintf(mess,"already have a time coordimate for array ID %i\n", arrayid);
 		     error(mess,-1);
-		  }
 	      }
 
               /* Fill definition of time dimension, except for its
                * dimension ID */
-              timedef[numtimedef].array_id = arrayid;
-              timedef[numtimedef].name = 
+              timedef.array_id = arrayid;
+              timedef.name = 
                (char *)malloc(strlen(timename)*sizeof(char));
-              strcpy((timedef[numtimedef].name), timename);
+              strcpy((timedef.name), timename);
 
               /* Check whether a time coordinate of this name exists
                * already and possibly get its dimension ID */
               status = nc_inq_dimid(ncid, timename, &dimid);
               if (status == NC_NOERR)
-                 timedef[numtimedef].nc_dim = dimid;
+                 timedef.nc_dim = dimid;
               else {
-                 status = nc_def_dim(ncid, timedef[numtimedef].name,
-                       NC_UNLIMITED, &(timedef[numtimedef].nc_dim));
+                 status = nc_def_dim(ncid, timedef.name,
+                       NC_UNLIMITED, &(timedef.nc_dim));
                  if (status != NC_NOERR)
                     nc_handle_error(status);
               }
-	      numtimedef++;
+	      
+	      /* May have a unit attribute, will be passed to
+	       * a variable with name timedef.name, if we are told
+	       * how to fill that variable */
+              timedef.unit = 
+                (char *)malloc(strlen(unit)*sizeof(char));
+              strcpy((timedef.unit), unit);
+
+	      /* Long name idem*/
+	      timedef.long_name =
+		   (char *)malloc(strlen(long_name)*sizeof(char));
+	      strcpy(timedef.long_name, long_name);
 	  } else {
 
 	  /* (2.2.2) This is a variable definition */
@@ -520,12 +538,10 @@ boolean
               else
                  search_id = follow_id;
               found_timedim = FALSE;
-              for (i=0; i < numtimedef; i++) {
-                 if (timedef[i].array_id == search_id) {
-                    (*(coldef+*numcoldef)).nc_dim[0] =
-                       timedef[i].nc_dim;
+              if (timedef.array_id == search_id) {
+                  (*(coldef+*numcoldef)).nc_dim[0] =
+                      timedef.nc_dim;
                     found_timedim = TRUE;
-                 }
               }
               if (!found_timedim) {
                  sprintf(mess,"could not find time dimension for arrayID %i\n", search_id);
@@ -579,12 +595,80 @@ boolean
 	      (*(coldef+*numcoldef)).index = 0;
 	      (*(coldef+*numcoldef)).curr_index = 0;
 	      (*(coldef+*numcoldef)).first_index = 0;
+	      
+	      /* Is time component ?*/
+	      (*(coldef+*numcoldef)).time_comp = time_comp;
+	      if (time_comp) num_time_comp++;
+
+	      /* Is CSI hour/min ?*/
+	      (*(coldef+*numcoldef)).time_csi_hm = time_csi_hm;
+
+	      /* Time multiplier */
+	      (*(coldef+*numcoldef)).time_mult = time_mult;
+
+	      /* Time offset */
+	      (*(coldef+*numcoldef)).time_offset = time_offset;
+	      
+	      /* I am time ?*/
+	      (*(coldef+*numcoldef)).i_am_time = FALSE;
 
 	      (*numcoldef)++;
           }
        }
     }
     
+    if (num_time_comp) {
+      /* Define name */
+      (*(coldef+*numcoldef)).name = 
+	(char *)malloc(strlen(timedef.name)*sizeof(char));
+      strcpy((*(coldef+*numcoldef)).name, timedef.name);
+      /* Define units */
+      (*(coldef+*numcoldef)).unit = 
+	(char *)malloc(strlen(timedef.unit)*sizeof(char));
+      strcpy((*(coldef+*numcoldef)).unit, timedef.unit);
+      /* Define long_name */
+      (*(coldef+*numcoldef)).long_name = 
+	(char *)malloc(strlen(timedef.long_name)*sizeof(char));
+      strcpy((*(coldef+*numcoldef)).long_name, timedef.long_name);
+      /* Define netcdf type */
+      (*(coldef+*numcoldef)).nc_type = NC_FLOAT;
+      /* Define time dimension */
+      (*(coldef+*numcoldef)).nc_dim[0] = timedef.nc_dim;
+      /* Define number of columns */
+      (*(coldef+*numcoldef)).ncol = 1;
+
+      /* Make room for floats (conversions handled by netcdf */
+      (*(coldef+*numcoldef)).values = 
+           (float *) malloc(sizeof(float)*MAX_SAMPLES*
+                     (*(coldef+*numcoldef)).ncol);
+      
+      /* Scale factor */
+      (*(coldef+*numcoldef)).scale_factor = NO_VALUE;
+      /* Offset */
+      (*(coldef+*numcoldef)).add_offset = NO_VALUE;
+      /* Valid minimum value */
+      (*(coldef+*numcoldef)).valid_min = NO_VALUE;
+      /* Valid maximum value */
+      (*(coldef+*numcoldef)).valid_max = NO_VALUE;
+      /* Missing value */
+      (*(coldef+*numcoldef)).missing_value = NO_VALUE;
+      /* I am time !! */
+      (*(coldef+*numcoldef)).i_am_time = TRUE;
+      /* I am time !! */
+      (*(coldef+*numcoldef)).time_num_comp = num_time_comp;
+      /* Initialize counters */
+      (*(coldef+*numcoldef)).index = 0;
+      (*(coldef+*numcoldef)).curr_index = 0;
+      (*(coldef+*numcoldef)).first_index = 0;
+      
+      /* Tell all time components about the current column number */
+      for (i=0; i<*numcoldef; i++) {
+         if ((*(coldef+i)).time_comp)
+	    (*(coldef+i)).time_colnum = *numcoldef;
+      }
+      (*numcoldef)++;
+    }
+
     /* (3) Define variables and attributes */
     for (i=0; i<*numcoldef; i++) {
       /* (3.1) Variable */
@@ -600,11 +684,14 @@ boolean
           nc_handle_error(status);
 
       /* (3.2) Units attribute */
-      status = nc_put_att_text(ncid, (*(coldef+i)).nc_var, "units",
+      if (strlen((*(coldef+i)).unit)) {
+        status = nc_put_att_text(ncid, (*(coldef+i)).nc_var, "units",
                                strlen((*(coldef+i)).unit), 
                                (*(coldef+i)).unit);
-      if (status != NC_NOERR) 
-          nc_handle_error(status);
+        if (status != NC_NOERR) 
+            nc_handle_error(status);
+      }
+      
 
       /* (3.3) Long_name attribute */
       if (strlen((*(coldef+i)).long_name)) {
@@ -660,7 +747,11 @@ boolean
          if (status != NC_NOERR) 
             nc_handle_error(status);
       }
+      
+      /* Is a time component ? */
+      if ((*(coldef+i)).time_comp) num_time_comp++;
     }
+
 
     /* (4) Global attributes */
     /* (4.1) Title attribute */
@@ -682,6 +773,17 @@ boolean
          if (status != NC_NOERR) 
             nc_handle_error(status);
     }
+
+    /* (4.3) Remark attribute */
+    if (strlen(globaldef.remark)) {
+         status = nc_put_att_text(ncid, NC_GLOBAL, 
+                                  "remark",
+                                  strlen(globaldef.remark), 
+                                  globaldef.remark);
+         if (status != NC_NOERR) 
+            nc_handle_error(status);
+    }
+
 
     /* (5) End of definition */
     status = nc_enddef(ncid);

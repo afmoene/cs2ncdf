@@ -169,3 +169,13 @@ unsigned int conv_arrayid(unsigned char byte[2]) {
     return ((unsigned int) (byte[0] & MASK_ARRAY_ID)*256 + byte[1]);
 }
 
+
+/* ........................................................................
+ * Routine:   conv_hour_min
+ * Purpose:   To convert from CSI hour minutes to decimal hours
+ * ........................................................................
+ */
+float conv_hour_min(float value){
+   return (floor(value/100)+(value/100-floor(value/100))/0.6);
+}
+
