@@ -14,7 +14,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.0.2"
+#define CSI2NCDF_VER "2.1.0"
 
 /* ........................................................................
  *
@@ -40,6 +40,8 @@
  *                            but do give warnings
  *            -c Condition  : only output data under certain condition
  *                            (see README for details)
+ *            -b start condition: start output when condition is true
+ *            -e stop condition: stop output when condition is true 
  *            -h            : displays usage
  *
  *
@@ -85,6 +87,8 @@ char
  */
 void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  maincond_def loc_cond[MAXCOND], int n_cond,
+                 maincond_def start_cond,
+                 maincond_def stop_cond,
                  boolean sloppy )
 
 {
@@ -103,6 +107,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      int     linenum, colnum, status,  numcoldef = 0;
      int     wanted_data;
      char    *printline = NULL, dumstring[100];
+     boolean have_start, have_stop, start_data, stop_data;
 
 
            
@@ -116,13 +121,20 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
     linenum=0;
     colnum=0;
     array_id =   -1;
-
+    have_start = (start_cond.cond_text != NULL);
+    have_stop = (stop_cond.cond_text != NULL);
+    if (have_start)
+       start_data = FALSE;
+    if (have_stop)
+       stop_data = FALSE;
+    
     /* (3) Loop input file, reading some data at once, and writing to
      *     netcdf file if array of data is full 
      */      
     curr_byte = 0;
     num_bytes = 0;
-    while ((!list_line && !feof(infile)) ||
+    while ((!stop_data) &&
+           (!list_line && !feof(infile)) ||
            (linenum <= list_line   &&   !feof(infile))   ||
            (list_line == -1 && !feof(infile))) {
 
@@ -143,7 +155,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
          curr_byte = 0;
          /* We have to take the risk that the last 2 bytes are the first half
             of a 4 byte word, bad luck */
-         while   (curr_byte < num_bytes-2)   {
+         while   (!stop_data && (curr_byte < num_bytes-2))   {
             /* (3.2.1) Determine type of byte read */
             switch (bytetype((data+curr_byte)))   {
               case TWO_BYTE:
@@ -184,8 +196,20 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
               case START_OUTPUT:
                   /* First handle conditions of previous ArrayID */
                   wanted_data = all_cond(loc_cond, n_cond);
+                  if (array_id > 0)
+                    if (have_start)
+                       start_data = (start_data || all_cond(&start_cond, 1));
+                    else
+                       start_data = TRUE;
+                  if (array_id > 0)
+                     if (have_stop)
+                     stop_data = all_cond(&stop_cond, 1);
+                  else
+                     stop_data = FALSE;
+                     
                   if (printline) {
-                    if (wanted_data)
+                    if (((have_start && start_data) && wanted_data) ||
+                        (!have_start && wanted_data))
                        printf("%s\n", printline);
                     free(printline);
                     printline = NULL;
@@ -193,7 +217,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                   /* If data were not wanted, skip one line back in
                    * storage array (only for those arrays where we got
                      data !! */
-                  if (!wanted_data && !list_line)
+                  if (((have_start && !start_data) ||
+                       !wanted_data ||
+                       (have_stop && stop_data)
+                      ) && !list_line)
                     for (i=0; i < numcoldef; i++) {
                        if (coldef[i].got_val) {
                           (coldef[i].index)--;
@@ -239,7 +266,11 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 
             /* (3.2.2) Check condition */
             check_cond(loc_cond, n_cond, array_id, colnum, value);
-
+            if (have_start)
+              check_cond(&start_cond, 1, array_id, colnum, value);
+            if (have_stop)
+              check_cond(&stop_cond, 1, array_id, colnum, value);
+            
             /* (3.2.2) Put sample in appropriate array */
             if   (!list_line) {
                for   (i=0;   i<   numcoldef; i++) {
@@ -367,7 +398,8 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
        first handle conditions of previous ArrayID */
     wanted_data = all_cond(loc_cond, n_cond);
     if (printline) {
-      if (wanted_data)
+      if (((have_start && start_data) && wanted_data) ||
+          (!have_start && wanted_data))
          printf("%s\n", printline);
       free(printline);
       printline = NULL;
@@ -376,7 +408,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 
     /* If data were not wanted, skip one line back in
      * storage array */
-    if (!wanted_data && !list_line)
+    if ((!wanted_data && !list_line) ||
+        ((have_start && !start_data) && !list_line) ||
+        ((have_stop && stop_data) && !list_line)
+       )
       for (i=0; i < numcoldef; i++) {
          if (coldef[i].got_val) {
             (coldef[i].index)--;
@@ -429,10 +464,19 @@ int main(int argc, char   *argv[])
         n_cond = 0;
     maincond_def
         loc_cond[MAXCOND];
+    maincond_def
+        start_cond;
+    maincond_def
+        stop_cond;
+        
         
     /* ....................................................................
      */
 
+    /* (0) Initialize */
+    start_cond.cond_text = NULL;
+    stop_cond.cond_text = NULL;
+    
     /* (1) Determine disk file name of program */
     strcpy(program,(argv[0]));
 
@@ -490,6 +534,24 @@ int main(int argc, char   *argv[])
                  strcpy(loc_cond[n_cond-1].cond_text, dumstring);
                  parse_main_cond(&(loc_cond[n_cond-1]));
                  break;
+                 
+               /* Start condition */
+               case 'b'   :
+                 cmd_arg(&argv, &argc,   2,   dumstring);
+                 start_cond.cond_text =
+                     (char *) malloc(strlen(dumstring)+1);
+                 strcpy(start_cond.cond_text, dumstring);
+                 parse_main_cond(&start_cond);
+                 break;
+                 
+               /* Stop condition */
+               case 'e'   :
+                 cmd_arg(&argv, &argc,   2,   dumstring);
+                 stop_cond.cond_text =
+                     (char *) malloc(strlen(dumstring)+1);
+                 strcpy(stop_cond.cond_text, dumstring);
+                 parse_main_cond(&stop_cond);
+                 break;
 
                /* Invalid flag */
                default :
@@ -542,7 +604,7 @@ int main(int argc, char   *argv[])
 
     /* (5) Do conversion */
     do_conv_csi(infile,   ncid,   formfile, list_line,
-                loc_cond, n_cond,  sloppy);
+                loc_cond, n_cond, start_cond, stop_cond, sloppy);
 
     /* (6) Close files */
     fclose(infile);

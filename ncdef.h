@@ -248,13 +248,17 @@ boolean
           otherline = FALSE;
           linecopy = get_clearstring(strlen(line)+strlen(dumline));
           strcpy(linecopy, line);
-  	       free(line);
+	  /* Do not free
+  	  free(line);
+	  */
           strcat(linecopy, dumline);
        }
        else {
           linecopy = get_clearstring(strlen(line)+strlen(dumline));
           strcpy(linecopy, line);
+	  /* Do not free 
 	  free(line);
+	  */
           strncat(linecopy, dumline, (slashp-dumline)/sizeof(char));
        }
        line = get_clearstring(strlen(linecopy));
@@ -276,7 +280,9 @@ boolean
     strncpy(linecopy, line, (size_t) pos+1);
 
     /* line should be freed, but get SIGABORT so, just leave it */
+    /*
     free(line);
+    */
     if (!strlen(linecopy)) return 0;
 
     /* (3) Get info from line */
