@@ -1,6 +1,7 @@
 /* $Id$ */
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 
 #include "error.h"
@@ -29,7 +30,6 @@ typedef struct {
    float cond_number;
    int   cond_col;
    int   cond_arrayid;
-   int   cond_andor;
    boolean status;
 } cond_def;
 
@@ -93,7 +93,8 @@ void parse_cond(cond_def *thiscond)
    colstring = get_clearstring(pos3-pos1);
    strncat(colstring, pos2+1,(size_t) (pos3-pos1-1));
    (*thiscond).cond_col = (int) atoi(colstring);
-   (*thiscond).cond_number = (float)atof(pos3+strlen(conditions[(*thiscond).cond_type]));
+   (*thiscond).cond_number =
+       (float)atof(pos3+strlen(conditions[(*thiscond).cond_type]));
    free(colstring);
 }
 
@@ -108,7 +109,7 @@ void parse_main_cond(maincond_def *thiscond) {
    token_found = TRUE;
 
    /* Put text in restcond */
-   restcond  = (char *) malloc((strlen((*thiscond).cond_text)+1)*sizeof(char));
+   restcond  = get_clearstring(strlen((*thiscond).cond_text));
    strcpy(restcond,(*thiscond).cond_text);
 
    /* Search for token that gives relation between conditions */
@@ -132,23 +133,21 @@ void parse_main_cond(maincond_def *thiscond) {
           (*thiscond).subcondrel[(*thiscond).n_subcond-1] = COND_OR;
         }
       }
-      /* If a token foujnd, get this condition, store the relationship
+      /* If a token found, get this condition, store the relationship
        * and strip this condition from restcond */
       if (token_found) {
         length = (int) (dumpos - restcond)/sizeof(char);
-        onecond = (char *) malloc((length+1)*sizeof(char));
-        *(onecond + length) = '\0';
-        strncpy(onecond, restcond, strlen(onecond));
+        onecond = get_clearstring(length);
+        strncpy(onecond, restcond, length);
       } else {
         (*thiscond).n_subcond += 1;
-        onecond = (char *) malloc((int) strlen(restcond)+1);
+        onecond = get_clearstring(strlen(restcond)+1);
         strcpy(onecond, restcond);
       }
       free(restcond);
       if (dumpos) {
-         restcond = (char *) malloc(strlen(dumpos)-1);
+         restcond = get_clearstring(strlen(dumpos)-1);
          strncpy(restcond, dumpos+2,strlen(dumpos+2));
-         *(restcond + strlen(dumpos)-2) = '\0';
       } else
          restcond = NULL;
               
@@ -161,24 +160,26 @@ void parse_main_cond(maincond_def *thiscond) {
       /* Parse this condition */
       parse_cond(&((*thiscond).subcond[(*thiscond).n_subcond-1]));
 
-      
+      /*
       printf("Condition compare %i\n", ((*thiscond).subcond[(*thiscond).n_subcond-1]).cond_type);
       printf("Condition number %f\n", ((*thiscond).subcond[(*thiscond).n_subcond-1]).cond_number);
       printf("Condition column %i\n", ((*thiscond).subcond[(*thiscond).n_subcond-1]).cond_col);
       printf("Condition arrayID %i\n",((*thiscond).subcond[(*thiscond).n_subcond-1]).cond_arrayid);
       printf("Condition text %s\n", ((*thiscond).subcond[(*thiscond).n_subcond-1]).cond_text);
+      */
 
    }
 }
 
 
-void reset_cond(maincond_def *loc_cond, int ncond){
+void reset_cond(maincond_def *loc_cond, int ncond, int arrayid){
    int i,j, n_subcond;
 
    for (i=0; i<ncond; i++) {
       n_subcond = (*(loc_cond+i)).n_subcond;
       for (j=0; j<n_subcond; j++) {
-         ((*(loc_cond+i)).subcond[j]).status = FALSE;
+         if (((*(loc_cond+i)).subcond[j]).cond_arrayid  == arrayid)
+            ((*(loc_cond+i)).subcond[j]).status = FALSE;
       }
       (*(loc_cond+i)).status = FALSE;
    }
@@ -215,8 +216,48 @@ void check_cond(maincond_def loc_cond[MAXCOND], int ncond,
                    if (value <= ((*(loc_cond+i)).subcond[j]).cond_number)
                       ((*(loc_cond+i)).subcond[j]).status = TRUE;
                    break;
+                case NE:
+                   if (value != ((*(loc_cond+i)).subcond[j]).cond_number)
+                      ((*(loc_cond+i)).subcond[j]).status = TRUE;
+                   break;
              }
+             /*
+             printf("condition on arrayid %i %i col %i %f %s %f : %i\n",
+                       j,  arrayid,  col, value,
+                         conditions[((*(loc_cond+i)).subcond[j]).cond_type],
+                       ((*(loc_cond+i)).subcond[j]).cond_number,
+                       ((*(loc_cond+i)).subcond[j]).status);
+             */
+
          }
       }
    }
+}
+
+boolean all_cond(maincond_def loc_cond[MAXCOND], int ncond){
+   int i,j, n_subcond;
+   boolean return_value = TRUE;
+
+   for (i=0; i<ncond; i++) {
+      n_subcond = (*(loc_cond+i)).n_subcond;
+      (*(loc_cond+i)).status = ((*(loc_cond+i)).subcond[0]).status;
+      for (j=1; j<n_subcond; j++) {
+         if (((*(loc_cond+i)).subcondrel[j-1]) == COND_AND)
+            (*(loc_cond+i)).status = ((*(loc_cond+i)).status &&
+                          ((*(loc_cond+i)).subcond[j]).status);
+         if (((*(loc_cond+i)).subcondrel[j-1]) == COND_OR)
+            (*(loc_cond+i)).status = ((*(loc_cond+i)).status ||
+                          ((*(loc_cond+i)).subcond[j]).status);
+      }
+      /*
+      printf("and/or %i status = %i %i %i \n",
+                                 (int) ((*(loc_cond+i)).subcondrel[0]),
+                                 (int) ((*(loc_cond+i)).subcond[0]).status,
+                                 (int) ((*(loc_cond+i)).subcond[1]).status,
+                                 (int) (*(loc_cond+i)).status);
+      */
+      return_value = (return_value && (*(loc_cond+i)).status);
+
+   }
+   return return_value;
 }

@@ -4,17 +4,19 @@ $Id$
 Program  :    csi2ncdf
 Author   :    Arnold Moene (afmoene@hp1.met.wau.nl, Meteorology and
               Air quality Group, Wageningen University)
-Date     :    July 1999
+Date     :    May 2000
+Version  :    2.0
 
 This README file describes the program csi2ncdf. The purpose of the
 program is to convert a Campbell binary file (final storage format) to
 a netCDF file. The reader of this README file is supposed to be more or
 less familiar with Campbell software and file formats.
 
-
 The program is invoked as:
 
-  csi2ncdf [-i infile -o outfile -f formatfile] [-l num_lines] -s -h
+  csi2ncdf [-i infile -o outfile -f formatfile] [-l num_lines] 
+           [-c "condition" ....]
+           -s -h
 
 The flags have the following meaning:
   -i infile          name of input (Campbell) file
@@ -23,6 +25,8 @@ The flags have the following meaning:
   -l num_lines       list num_lines lines from input file to screen
                      if num_lines equals -1, all lines are listed 
                      (thus the program can be used as a simple 'split' progam)
+  -c condition       only output data when certain conditions are met
+                     (see section on Conditions for a description)
   -s                 be sloppy about errors in input file: give warning but
                      not abort
   -h                 show help on screen
@@ -251,26 +255,28 @@ Optional tokens are:
 
 Construction of a time variable
 -------------------------------
-With the current program it is possible to construct a time variable from columns
-in the input file. This means that the program makes a new variable with the name
-given after 'timevar =' in the format file. Variable can have a number of attributes.
-For such a time variable, attributes that can be used are long_name and units and
-type (see before).
+With the current program it is possible to construct a time variable from
+columns in the input file. This means that the program makes a new variable
+with the name given after 'timevar =' in the format file. Variable can have 
+a number of attributes.  For such a time variable, attributes that can be used
+are long_name and units and type (see before).
 An example declaration would be
 EXAMPLE:
    id = 100 timevar="my_time" long_name="decimal hours since midnight" 
 
-The value of the time variable is contracted by summing values of columns that have been
-defined to participate in the definition of the time variable (using special tokens).
+The value of the time variable is contracted by summing values of columns that
+have been defined to participate in the definition of the time variable 
+(using special tokens).
 
 For the construction of the time variable extra tokens are available for the definition of
 variables. These are:
   time_offset  subtract this (float) value, from the value read from file
-  time_mult    multiply the difference of the value read from file and time_offset
-               with this (float) value (required to define that this variable is part of
-               the time definition)
-  time_csi_hm  if time_csi_hm = 1, this is a Campbell hour/minutes column; this implies
-               that it is converted to decimal hours, before offset and multiply are applied.
+  time_mult    multiply the difference of the value read from file and 
+               time_offset with this (float) value (it is required to define
+	       that this variable is part of the time definition !!)
+  time_csi_hm  if time_csi_hm = 1, this is a Campbell hour/minutes column; 
+               this implies that it is converted to decimal hours, before
+               offset and multiply are applied.
 EXAMPLE
   id = 100 timevar="my_time" long_name = "hours since midnight"
   id = 100 col_num=2 name="doy"
@@ -278,9 +284,10 @@ EXAMPLE
   id = 100 col_num=4 name="secs" time_mult=2.777e-4 // 3600 seconds in the hour
 
 This fragment of a format file will result in an extra variable named "my_time" in the file.
-This will be constructed as the sum of column 3 (converted to decimal hours) and
-column 4 (converted to decimal hours as well). This construction can
-also be used when the time information is partly contained in 'following variables'.
+This will be constructed as the sum of column 3 (converted to decimal hours) 
+and column 4 (converted to decimal hours as well). This construction can
+also be used when the time information is partly contained in 'following 
+variables'.
 
 
 
@@ -299,21 +306,23 @@ dim_name   NetCDF name of the second dimension of the current variable
 long_name  an alternative, more complete NetCDF
 scale_factor 
            NetCDF attribute:  value should be multiplied with ..
-add_offset NetCDF attribute: offset to add to the data (after scaling with scale_factor)
+add_offset NetCDF attribute: offset to add to the data (after scaling 
+           with scale_factor)
 valid_min  NetCDF attribute: valid minimum value
 valid_max  NetCDF attribute: valid minimum value
 missing_value 
            NetCDF attribute:  missing values are indicated by ..
 type       NetCDF attribute: type to store in
-follow_id  let data with the current CSI arrayID (defined with 'id =' token) 
+follow_id  let data with the current CSI arrayID (defined with 'id =' token)
 time_offset  
            subtract this (float) value, from the value read from file
 time_mult  multiply the difference of the value read from file and time_offset
-           with this (float) value (required to define that this variable is part of
-           the time definition)
+           with this (float) value (required to define that this variable is 
+           part of the time definition)
 time_csi_hm 
-           if time_csi_hm = 1, this is a Campbell hour/minutes column; this implies
-           that it is converted to decimal hours, before offset and multiply are applied.
+           if time_csi_hm = 1, this is a Campbell hour/minutes column; 
+	   this implies that it is converted to decimal hours, before 
+	   offset and multiply are applied.
 
 
 
@@ -332,3 +341,71 @@ id = 100 col_num = 5 ncol = 3 dimname="comp" var_name="velocity" units="meter se
 id = 100 col_num = 8 var_var_name="Tsonic" units="celsius" 
 id = 100 col_num = 9 var_name="diagnostic" units="-" type="short"
 id = 100 col_num = 10 name="Krypton" units="mV" 
+
+
+Conditions
+----------
+As of version 2.0 of csi2ncdf it is possible to control the output of
+data through conditions. This is mainly intended to be able to select 
+data based on time (to split large files into e.g. half-hourly files).
+But it can also be used to select data with a given wind direction,
+temperature .....
+
+An example of a simple condition as it would appear on the command line is
+  -c "A100 C2 > 1400"
+
+It consists of three parts:
+- A reference to a column in a CSI file. Since a CSI file can contain data
+  from different output instructions (containing different kinds of data
+  in a given column) the column number is further indicated with the
+  arrayID. The arrayID is preceded by a 'a' or 'A', whereas the column
+  number is preceded by a 'c' or a 'C'. Thus, in the example, the data
+  with arrayID 100 and column number 2 are referenced.
+- A comparison operator. Valid tokens are:
+  ==       : equal
+  >        : greater than
+  <        : less than
+  >= or => : greater than or equal
+  <= or =< : less than or equal
+  !=       : not equal (dangerous, since all comparisons are done on floats)
+- A value used in the comparison. This number is always converted to a 
+  floating point number, so be careful with (un)equality comparisons.
+
+Conditions can be combined in a AND (&&) or OR (||) way:
+  -c "A100 C2 > 1400 && A100 C2 < 1500"
+
+means data with arrayID 100 in column 2 should be greater than 1400 AND
+less than 1500
+
+  -c "A100 C3 > 2 || A100 C4 > 5"
+
+means that data with array ID 100, column 3 should be greater than 2
+OR data with array ID 100, column 4 should be greater than 5
+(the number of sub conditions is now limited to 100; not a problem, I suppose 
+:) ).
+
+From the examples one can see that in one main conditions (the string
+following -c) sub conditions with varying columns can be used. One can
+also access data from an arrayID that is not used for the time variable
+(see examples above with so-called 'following variables'). These data
+even do not need to be stored in the NetCDF file. If we take again the following
+example fragment:
+
+100 182 1420
+200 2.34 3.45 2.34 5.42 5.64
+200 3.45 5.44 5.45 4.45 5.56
+200 5.45 5.67 5.56 5.45 3.45
+200 4.34 5.67 6.67 6.67 7.78
+100 182 1430
+200 2.34 5.68 6.67 7.78 8.89
+....
+
+the condition -c "A100 c3 > 1425" will cause output to start after the line
+'100 182 1430' has been read. It will start all requested output, also
+that of data with array ID 200 (in fact, once a condition is TRUE, it remains
+so until data have been read that make the condition FALSE).
+
+On the command line more than one condition can be given (a maximum of 100 is
+implemented now). These conditions are combined with AND (i.e. all conditions
+should be true in order to cause output of data).
+

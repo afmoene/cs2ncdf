@@ -96,7 +96,7 @@ void progress(int current, int total)
                           total
                           :
                           ceil (total / ((float) line_length));
-        n_positions = floor(total / items_per_mark);
+        n_positions = floor((float) total / items_per_mark);
         current_mark=1;
 
         /* Place start and end markers for marks */

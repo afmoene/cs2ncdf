@@ -14,35 +14,36 @@
  * ........................................................................
  */
 typedef struct {
-  int  array_id;
-  int  follow_id;
-  int  col_num;
-  char *name;
-  char *long_name;
   float scale_factor;
   float add_offset;
   float valid_min;
   float valid_max;
   float missing_value;
-  char *unit;
+  float time_mult;
+  float time_offset;
+  float *values;
+  float *follow_val;
+  int  array_id;
+  int  follow_id;
+  int  col_num;
   int nc_var;
   int nc_type;
   int nc_dim[2];
-  float *values;
-  float *follow_val;
-  size_t index;
   int curr_index;
+  size_t index;
   size_t first_index;
   int ncol;
-  boolean time_comp;
-  boolean time_csi_hm;
-  float time_mult;
-  float time_offset;
   int time_colnum;
-  boolean i_am_time;
   int time_num_comp;
   int time_got_comp;
+  char *name;
+  char *long_name;
+  char *unit;
+  boolean time_comp;
+  boolean time_csi_hm;
+  boolean i_am_time;
   boolean got_follow_val;
+  boolean got_val; /* needed to handle incomplete lines */
 } column_def;
 
 typedef struct {
@@ -76,7 +77,7 @@ char *stringp, *stringp2, *outstring;
            }
 }
 
-char *non_space(char *string, const char *word, char letter) {
+char *non_space(char *string, const char *word, const char letter) {
    int i;
 
    for (i = strlen(word); i <strlen(string); i++) {
@@ -164,8 +165,8 @@ char *get_clearstring(num) {
    char *stringp;
    int   i;
 
-   stringp = (char *) malloc(num*sizeof(char));
-   for (i=0; i<num-1;i++)
+   stringp = (char *) malloc((num+1)*sizeof(char));
+   for (i=0; i<num+1;i++)
       stringp[i] = '\0';
    return stringp;
 }
@@ -242,12 +243,19 @@ boolean
     line = get_clearstring(MAX_LINELENGTH);
     while (otherline) {
        if (!fgets(dumline, sizeof(dumline), formfile)) return 0;
-       if (!(slashp = strrchr(dumline,'\\')))
+       if (!(slashp = strrchr(dumline,'\\'))) {
           otherline = FALSE;
-       linecopy = get_clearstring(strlen(line)+strlen(dumline));
-       strcpy(linecopy, line);
-       strncat(linecopy, dumline, (slashp-dumline)/sizeof(char));
-       free(line);
+          linecopy = get_clearstring(strlen(line)+strlen(dumline));
+          strcpy(linecopy, line);
+  	       free(line);
+          strcat(linecopy, dumline);
+       }
+       else {
+          linecopy = get_clearstring(strlen(line)+strlen(dumline));
+          strcpy(linecopy, line);
+	  free(line);
+          strncat(linecopy, dumline, (slashp-dumline)/sizeof(char));
+       }
        line = get_clearstring(strlen(linecopy));
        strcpy(line, linecopy);
     }
@@ -257,16 +265,17 @@ boolean
     if (strstr(line, "//")) {
        pos = (int) (line-strstr(line, "//"));
        if (!pos) {
-          free(line);
+       /* line should be freed, but get SIGABORT so, just leave it */
+       /* free(line);*/
           return 0;
        }
     } else
        pos = strlen(line);
     linecopy[0]='\0';
-    strncpy(linecopy, line, pos+1);
+    strncpy(linecopy, line, (size_t) pos+1);
 
     /* line should be freed, but get SIGABORT so, just leave it */
-    /* free(line);*/
+    free(line);
     if (!strlen(linecopy)) return 0;
 
     /* (3) Get info from line */
@@ -420,7 +429,7 @@ boolean
  * ........................................................................
  */
 void def_nc_file(int ncid, FILE *formfile, 
-                 column_def *coldef, int *numcoldef, int maxnumcoldef) {
+                 column_def coldef[MAXCOL], int *numcoldef, int maxnumcoldef) {
 int 
     status,
     i, j,arrayid, column, type, dimid, ncol, 
@@ -656,6 +665,9 @@ boolean
 	      /* I am time ?*/
 	      (*(coldef+*numcoldef)).i_am_time = FALSE;
 
+         /* Did we get a value yet */
+ 	      (*(coldef+*numcoldef)).got_val = FALSE;
+
 	      (*numcoldef)++;
           }
        }
@@ -714,6 +726,8 @@ boolean
       (*(coldef+*numcoldef)).curr_index = 0;
       (*(coldef+*numcoldef)).first_index = 0;
       (*(coldef+*numcoldef)).time_got_comp = 0;
+      /* Did we get a value yet */
+      (*(coldef+*numcoldef)).got_val = FALSE;
       
       /* Tell all time components about the current column number */
       for (i=0; i<*numcoldef; i++) {
