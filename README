@@ -4,8 +4,8 @@ $Id$
 Program  :    csi2ncdf
 Author   :    Arnold Moene (afmoene@hp1.met.wau.nl, Meteorology and
               Air quality Group, Wageningen University)
-Date     :    May 2000
-Version  :    2.0.2
+Date     :    September 2000
+Version  :    2.1.0
 
 This README file describes the program csi2ncdf. The purpose of the
 program is to convert a Campbell binary file (final storage format) to
