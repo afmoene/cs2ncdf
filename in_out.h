@@ -174,6 +174,7 @@ void cmd_arg(char *(*arg[]), int *arg_cnt, int flag_length, char param[])
        *(*arg)++;
         (*arg_cnt)--;
     }
+    return;
 }
 
 
