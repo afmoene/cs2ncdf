@@ -26,7 +26,8 @@
 <para>
 This README file describes the program <command>csi2ncdf</command>. 
 The purpose <command>csi2ncdf</command> is to convert a Campbell binary 
-file (final storage format) to a netCDF file. 
+file (final storage format) or a text file (either from CSI dataloggers, or
+more general text files) to a netCDF file. 
 Besides describing the program and the format file that is needed 
 by it, it also gives a brief introduction on Campbell data files
 and the NetCDF format.
