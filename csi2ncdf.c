@@ -229,7 +229,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line,
             data[MAX_BYTES];
      float value;
      size_t count[2], start[2];
-     int   array_id, i, j, num_bytes, curr_byte;
+     int   array_id, i, j, num_bytes, curr_byte, timcol;
      int   linenum, colnum, status, numcoldef;
      column_def
            coldef[MAXCOL];
@@ -316,6 +316,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line,
 	          *  - correct array_id and column number in range
 	          *    between first and last column of 2D variable, or
 	          *  - a variable that follows this array_id
+	          *  - first column and i am the time variable
 	          */
                  if ((coldef[i].array_id == array_id &&
                       ((coldef[i].col_num == colnum) ||
@@ -324,8 +325,21 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line,
                        ))
                      ) ||
 		     ((coldef[i].follow_id == array_id) &&
-		      (colnum == 1))
+		      (colnum == 1)) ||
+		     (coldef[i].i_am_time)
 		    ) {
+		  
+		    
+		   if (colnum == 1 && coldef[i].i_am_time) {
+		       coldef[i].time_got_comp = 0;
+                   }
+		   if (coldef[i].i_am_time && 
+		       (coldef[i].time_got_comp == coldef[i].time_num_comp)) {
+		      coldef[i].curr_index++;
+		      coldef[i].index++;
+		      coldef[i].time_got_comp = 0;
+		   }
+
 		   /* First check if array is full; if so, dump data to
 		    * file */
                    if (coldef[i].curr_index == MAX_SAMPLES) {
@@ -344,8 +358,8 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line,
                          nc_handle_error(status);
                    } 
 		   /* Add data sample to array */
-		   /* This is not a following variable */
-		   if (coldef[i].follow_id == -1) {
+		   /* This is not a following variable and not time */
+		   if (coldef[i].follow_id == -1 && !coldef[i].i_am_time) {
                      coldef[i].values[coldef[i].ncol*
 		                      coldef[i].curr_index+
                                       colnum-coldef[i].col_num]
@@ -354,9 +368,18 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line,
 		         colnum) {
                         (coldef[i].index)++;
                         (coldef[i].curr_index)++;
+		     if (coldef[i].time_comp) {
+		        if (coldef[i].time_csi_hm) value = conv_hour_min(value);
+			timcol=coldef[i].time_colnum;
+			if (coldef[timcol].time_got_comp == 0)
+			   coldef[timcol].values[coldef[timcol].curr_index] = 0.0;
+			coldef[timcol].values[coldef[timcol].curr_index]+=
+			    (value-coldef[i].time_offset)*coldef[i].time_mult;
+			coldef[timcol].time_got_comp++;
+		     }
                      }
-		   /* This is a following variable */
-		   } else {
+		   /* This is a following variable and not time */
+		   } else if (!coldef[i].i_am_time) {
 		      /* This is a line with its own array_id:
 		       * get data */
 		      if (coldef[i].array_id == array_id) {
