@@ -10,8 +10,8 @@
 
 <revhistory>
 <revision>
-<revnumber>2.1.0</revnumber>
-<date>September 2000 </date>
+<revnumber>2.1.2</revnumber>
+<date>May 14, 2001 </date>
 <revremark>$Id$</revremark>
 </revision>
 </revhistory>
@@ -61,9 +61,10 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 </screen>
-</para>
 
 For a complete version of the GPL, see <xref linkend="gpl">.
+
+</para>
 
 <sect1 id="intro"><title> Introduction</title>
 <para>
@@ -645,13 +646,196 @@ positive values between 14 and 15 o'clock).
 </sect2>
 </sect1>
 
+<sect1 id=errormsgs> <title>Error messages</title>
+<para>
+This section describes briefly the error meassages that can be
+given by the program. The error messages of the NetCDF library
+will not be dealt with. Errors thrown by the NetCDF library
+can be recognized by the following format
+<screen>
+NetCDF error: .....
+</screen>
+Details on the meaning of those errors (as far as they are not
+self-explanatory) can be found in the file <filename>error.c</filename>
+in the source-tree of the NetCDF library.
+All other error messages are dealt with below.
+
+<sect2><title>Command line errors</title>
+<para>
+<sect3><title>no output file specified</title>
+<para>
+No output file was specified on the command line (<option>-o</option>
+command line switch).
+</para>
+</sect3>
+
+<sect3><title>no input file specified</title>
+<para>
+No input file was specified on the command line (<option>-i</option>
+command line switch).
+</para>
+</sect3>
+
+<sect3><title>no format file specified</title>
+<para>
+No format file was specified on the command line (<option>-f</option>
+command line switch).
+</para>
+</sect3>
+
+<sect3><title>cannot open file ... for reading</title>
+<para>
+The specified file (either CSI file or format file) can not be found, or
+can not be opened for reading.
+</para>
+</sect3>
+
+<sect3><title>No arrayid indicator (a or A) found in condition</title>
+<para>
+A condition on the command line should contain a reference to the 
+array ID to which the condition applies (e.g. A300 referse to array ID 300).
+</para>
+</sect3>
+
+<sect3><title>No column indicator (c or C) found in condition</title>
+<para>
+A condition on the command line should contain a reference to the 
+column to which the condition applies (e.g. c3 referse to column 3).
+</para>
+</sect3>
+
+<sect3><title>No comparison found in condition</title>
+<para>
+A condition on the command line should contain a comparison operator
+</para>
+</sect3>
+</para>
+</sect2>
+
+<sect2><title>Format file errors</title>
+<para>
+<sect3><title>could not convert ...</title>
+<para>
+While reading the format file, characters following an equality sign
+(that followed the variable given on the place of the dots)
+could not be converted to either an integer, a float or a quoted string
+(depending on the parameter under consideration).
+</para>
+</sect3>
+
+<sect3><title>unknown type</title>
+<para>
+While reading the format file, the variable type given following
+<userinput>type=</userinput> is invalid (i.e. not one of 
+<userinput>float</userinput>,
+ <userinput>int</userinput>, <userinput>short</userinput>,
+ <userinput>double</userinput>, <userinput>char</userinput>, or
+ <userinput>byte</userinput>.
+</para>
+</sect3>
+
+<sect3><title>number of columns defined but no name for extra dimension</title>
+<para>
+In the format file one could indicate that a variable spans a number of 
+columns in the data file. But then a name for that extra dimension (apart
+from the time dimension) should be given.
+</para>
+</sect3>
+
+<sect3><title>when follow_id defined, also missing_value should be defined</title>
+<para>
+When a variable is supposed to follow a variable with another array ID,
+it is compulsary to give a <userinput>missing_value</userinput>, since
+the first few samples might be empty (the array ID given by
+<userinput>follow_id</userinput> might start before data of the variable
+under consideration are available).
+</para>
+</sect3>
+
+<sect3><title>does not make sense to define time_offset, when not defining tim
+e_mult</title>
+<para>
+In the format file you can define an offset and a multiplier to construct
+a time variable. But it does not make sense to have an offset, without
+any multiplier (since it would give you a constant time variable).
+</para>
+</sect3>
+
+<sect3><title>incomplete line in format file: ...</title>
+<para>
+A complete line in the format file should either consist of
+a combination of declarations of <userinput>id=</userinput>
+and <userinput>timevar=</userinput>, or a combination of
+<userinput>id=</userinput>, 
+<userinput>col_num=</userinput>, 
+<userinput>var_name=</userinput> and
+<userinput>units=</userinput>.
+The incomplete line is given on the place of the dots, so by inspecting the error message you could see which line in the format file is incomplete.
+</para>
+</sect3>
+
+<sect3><title>already have a time coordimate for array ID ...</title>
+<para>
+In the format file, a variable may be linked to the (unlimited) time
+dimension (this is not compulsary). If one does so, only <emphasis>one
+</emphasis> time variable can be used (since there is also only
+one time dimension). This error message is thrown when one attempts to
+define a second time variable. On the dots, the array ID of the 
+previously  defined time variable is given.
+</para>
+</sect3>
+
+<sect3><title>could not find time dimension for arrayID ...</title>
+<para>
+In the format file, each variable should be linked to the one
+(unlimited) time dimensions available. This link can either be through
+line in the format file, like <userinput>id = .. timevar = ....</userinput>,
+or through the use of the <userinput>follow_id</userinput> token.
+This error message is given when data of a given array ID are <emphasis>
+not</emphasis> linked to the time dimension.
+</para>
+</sect3>
+
+
+<sect3><title>already have dimension with name .., but has length ... instead of ...</title>
+<para>
+In the format file one defines a new dimension with a name of an existing
+dimension, but with a different length.
+</para>
+</sect3>
+</para>
+</sect2>
+<sect2><title>Run-time errors</title>
+<para>
+<sect3><title>unexpected byte pair in file</title>
+<para>
+In CSI binary files, bytes come in pairs, and numbers are represented
+by either 2 or 4 bytes. Each byte in a number has a certain bit pattern from
+which it can be identified. This error message is given when two consecutive
+bytes have bit pattern that does not correspond to consecutive bytes.
+This may indicate a corrupted
+file (e.g. some hick-ups of the transfer from datalogger to PC). If you're sure
+that the file is correct beyond the invalid bute pair, you could try
+the <option>-s</option> (sloppy) to force <command>csi2ncdf</command>
+to go on beyond the corrupt point.
+</para>
+</sect3>
+<sect3><title>unknown byte</title>
+In CSI binary files, bytes come in pairs, and numbers are represented
+by either 2 or 4 bytes. Each byte in a number has a certain bit pattern from
+which it can be identified. This error message is given when a byte could not
+be identified.
+</para>
+</sect2>
+
+</para>
+</sect1>
+
 <sect1 id="gpl"><title>License</title>
 <para>
-
 <screen>
 &gpl;
 </screen>
-
 </para>
 </sect1>
 

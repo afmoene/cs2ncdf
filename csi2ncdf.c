@@ -34,7 +34,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.1.1"
+#define CSI2NCDF_VER "2.1.2"
 
 /* ........................................................................
  *
@@ -276,12 +276,12 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                   break;
               default:
                   if (sloppy) {
-                     printf("warning unkown byte pair\n");
+                     printf("warning unkown byte type\n");
                      curr_byte++;
                   } else   {
                      status = nc_close(ncid);
                      close(infile);
-                     error("unknown byte pair",-1);
+                     error("unknown byte type",-1);
                   }
                   break;
             } /* switch */

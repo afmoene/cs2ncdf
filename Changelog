@@ -1,6 +1,9 @@
 $Id$
 Changelog for csi2ncdf
 
+Version 2.1.2 : 2001-5-14 (arnold.moene@user.metair.wau.nl)
+* slight changes to error messages in csi2ncdf.c and ncdef.h
+* added part on error messages to documentation
 
 Version 2.1.1 : 2000-5-10 (arnold.moene@user.metair.wau.nl)
 * First public release.

@@ -359,7 +359,7 @@ boolean
             *type = NC_BYTE;
         else {
 	    type_found = FALSE;
-            error("unkown type",-1);
+            error("unknown type",-1);
 	}
     }
     
