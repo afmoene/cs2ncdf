@@ -12,12 +12,12 @@ TXTDSL=c:/sgml/sgmlto~1.2/dsssl/ascii-lynx.dsl
 all:  readme.html readme.rtf readme.txt
 
 readme.html: readme.sgml
-	$(JADE) -t sgml -d $(HTMLDSL) readme.sgml 
+	$(JADE) -E 1000 -t sgml -d $(HTMLDSL) readme.sgml 
 
 readme.rtf: readme.sgml
-	$(JADE) -t rtf -d $(PRINTDSL) readme.sgml 
+	$(JADE) -E 1000 -t rtf -d $(PRINTDSL)  readme.sgml 
 
 readme.txt: readme.sgml
-	$(JADE) -t sgml -d $(TXTDSL) readme.sgml > foo.html
+	$(JADE) -E 1000 -t sgml -d $(TXTDSL) readme.sgml > foo.html
 	$(LYNX) -dump -width=90 -nolist -force_html  foo.html > readme.txt
 	$(RM) foo.html

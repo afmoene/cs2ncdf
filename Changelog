@@ -1,6 +1,12 @@
 $Id$
 Changelog for csi2ncdf
 
+Version 2.2.3: 2002-10-8 (arnold.moene@wur.nl)
+* moved writing of data to NetCDF file to one place, after the check
+  that a new line has started. Without this the arrays that hold the data
+  could be full at different moments, for different variables leading
+  to non-synchronized arrays. Lead to crash on corrupt files with
+  -s on.
 Version 2.2.2: 2002-10-4 (arnold.moene@wur.nl)
 * added code ensure that data of different columns remain in sync
   (relevant when data file is corrupt -> in caseyou need the -s sloppy flag). 

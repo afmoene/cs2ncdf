@@ -10,14 +10,14 @@
 
 <revhistory>
 <revision>
-<revnumber>2.2.2</revnumber>
-<date>October  4, 2002 </date>
+<revnumber>2.2.3</revnumber>
+<date>October  8, 2002 </date>
 <revremark>$Id$</revremark>
 </revision>
 </revhistory>
 
 <copyright>
-<year>2000</year>
+<year>2000-2002</year>
 <holder>Meterology and Air Quality Group (Wageningen University), Arnold Moene
 </holder>
 </copyright>
@@ -38,7 +38,7 @@ and the NetCDF format.
 <para>
 <address>
 <firstname>Arnold</firstname> <surname>Moene</surname>
-<email>arnold.moene@user.metair.wau.nl</email>
+<email>arnold.moene@wur.nl</email>
 <street>Duivendaal 2</street>
 <postcode>6701 AP</postcode> <city>Wageningen</city>
 <country>The Netherlands</country>
@@ -874,9 +874,13 @@ in _FillValue attribute in NetCDF file).
 </sect3>
 
 <sect3><title>data of various columns are not in sync</title>
-If this message appears, there is a bug in the software. Please report.
-This implies that at some lines data have been missed and not
-fille with dummy values.
+<para>
+If this message appears, either the datafile is corrupt (and you
+could try the sloppy flag -s) or there is a bug in the software (if
+it persists even with -s on). Please report.
+This message implies (with -s on) that at some line data have been 
+missed and not filled with dummy values.
+</para>
 </sect3>
 </sect2>
 

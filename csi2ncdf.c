@@ -34,7 +34,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.2.2"
+#define CSI2NCDF_VER "2.2.3"
 #define FTYPE_CSIBIN 1
 #define FTYPE_TXTCSV 2
 #define FTYPE_TXTSSV 3
@@ -160,6 +160,8 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
        stop_data = FALSE;
     if (fake)
        def_array_id = coldef[0].array_id;
+    for (i=0; i < numcoldef; i++)
+       coldef[i].got_val = FALSE;
     
     /* (3) Loop input file, reading some data at once, and writing to
      *     netcdf file if array of data is full 
@@ -287,44 +289,47 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 
 		     /* Make sure that arrays of give array_id are
 		      * synchronized */
-                     for (i=0; i < numcoldef; i++) {
-                       if (coldef[i].array_id == array_id) {
-                         if (!coldef[i].got_val) { 
-                           if (coldef[i].missing_value == NO_VALUE) {
-	  	             switch(coldef[i].nc_type)
-		             {
-			       case NC_BYTE:
-		                  value = (float) NC_FILL_BYTE;
-                                  break;
-			       case NC_CHAR:
-		                  value = (float) NC_FILL_CHAR;
-                                  break;
-			       case NC_INT:
-			          value = (float) NC_FILL_INT;
-                                  break;
-			       case NC_SHORT:
-			          value = (float) NC_FILL_SHORT;
-                                  break;
-			       case NC_FLOAT:
-			           value = (float) NC_FILL_FLOAT;
-                                   break;
-			       case NC_DOUBLE:
-			           value = (float) NC_FILL_DOUBLE;
-                                   break;
-                             }
-                           } else {
-		             value = coldef[i].missing_value;
-			   }
-			   for (j = 0; j< coldef[i].ncol; j++)
-                               coldef[i].values[coldef[i].ncol*
-                                                coldef[i].curr_index+j] = 
-			             (float) value;
-                           printf("warning: filling missing value with fake\n");
-                           printf("line num = %i variable = %s\n", linenum, coldef[i].name);
-                           (coldef[i].index)++;
-                           (coldef[i].curr_index)++;
+		     if (sloppy) {
+                       for (i=0; i < numcoldef; i++) {
+                         if (coldef[i].array_id == array_id) {
+                           if (!coldef[i].got_val) { 
+                             if (coldef[i].missing_value == NO_VALUE) {
+	    	               switch(coldef[i].nc_type)
+	  	               {
+	  		         case NC_BYTE:
+	  	                    value = (float) NC_FILL_BYTE;
+                                    break;
+	  		         case NC_CHAR:
+	  	                    value = (float) NC_FILL_CHAR;
+                                    break;
+	  		         case NC_INT:
+	  		            value = (float) NC_FILL_INT;
+                                    break;
+	  		         case NC_SHORT:
+	  		            value = (float) NC_FILL_SHORT;
+                                    break;
+	  		         case NC_FLOAT:
+	  		             value = (float) NC_FILL_FLOAT;
+                                     break;
+	  		         case NC_DOUBLE:
+	     	  	             value = (float) NC_FILL_DOUBLE;
+                                     break;
+                               }
+                             } else {
+		               value = coldef[i].missing_value;
+			     }
+			     for (j = 0; j< coldef[i].ncol; j++)
+                                 coldef[i].values[coldef[i].ncol*
+                                                  coldef[i].curr_index+j] = 
+			               (float) value;
+                             printf("warning: filling missing value with fake\n");
+                             printf("line num = %i variable = %s\n", linenum, coldef[i].name);
+                             (coldef[i].index)++;
+                             (coldef[i].curr_index)++;
+                             coldef[i].got_val = TRUE;
+                           }
                          }
-                       }
+		       }
                      }
                      for (i=0; i < numcoldef; i++) {
                        if (coldef[i].array_id == array_id) {
@@ -335,9 +340,12 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      for (i=0; i < numcoldef; i++) {
                        if (coldef[i].array_id == array_id) {
                           if ((l_index != coldef[i].index) ||
-                              (l_curr_index != coldef[i].curr_index))
+                              (l_curr_index != coldef[i].curr_index)) {
+                          printf("l_index = %i, index = %i\n", l_index, coldef[i].index);
+                          printf("l_curr_index = %i, curr_index = %i\n", l_curr_index, coldef[i].curr_index);
                               printf("error: data of various columns not in sync at line num = %i variable = %s\n", linenum, coldef[i].name);
-			      exit;
+			      error("Either your file is corrupt (try -s) or this is a bug: please report\n", -1);
+                          }
                        }
                      }
                      /* If data were not wanted, skip one line back in
@@ -357,6 +365,25 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      for (i=0; i < numcoldef; i++)
                         coldef[i].got_val = FALSE;
                
+                   /* First check if array is full; if so, dump data to
+                    * file */
+                     for (i=0; i < numcoldef; i++)
+                   if (coldef[i].curr_index == MAX_SAMPLES)   {
+                      start[0]=coldef[i].first_index;
+                      start[1]=0;
+                      count[0]= coldef[i].index   - coldef[i].first_index;
+                      count[1]=coldef[i].ncol;
+                      status = nc_put_vara_float(
+                       ncid, coldef[i].nc_var,
+                                 start,
+                                 count,
+                                 coldef[i].values);
+                      coldef[i].first_index = coldef[i].index;
+                      coldef[i].curr_index=0;
+                      if (status   !=   NC_NOERR) 
+                         nc_handle_error(status);
+                   }
+
                      /* Now start handling of new data */
 		     if (fake)
 			 array_id = def_array_id;
@@ -442,23 +469,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                        coldef[i].time_got_comp   = 0;
                     }
 
-                   /* First check if array is full; if so, dump data to
-                    * file */
-                   if (coldef[i].curr_index == MAX_SAMPLES)   {
-                      start[0]=coldef[i].first_index;
-                      start[1]=0;
-                      count[0]= coldef[i].index   - coldef[i].first_index;
-                      count[1]=coldef[i].ncol;
-                      status = nc_put_vara_float(
-                       ncid, coldef[i].nc_var,
-                                 start,
-                                 count,
-                                 coldef[i].values);
-                      coldef[i].first_index = coldef[i].index;
-                      coldef[i].curr_index=0;
-                      if (status   !=   NC_NOERR) 
-                         nc_handle_error(status);
-                   }
+
                    /* Add data sample to array */
                    /* This is not a following variable and not time */
                    if ((coldef[i].follow_id   ==   -1)   &&
