@@ -13,7 +13,7 @@ less familiar with Campbell software and file formats.
 
 The program is invoked as:
 
-  csi2ncdf [-i infile -o outfile -f formatfile] [-l num_lines] -h
+  csi2ncdf [-i infile -o outfile -f formatfile] [-l num_lines] -s -h
 
 The flags have the following meaning:
   -i infile          name of input (Campbell) file
@@ -22,6 +22,8 @@ The flags have the following meaning:
   -l num_lines       list num_lines lines from input file to screen
                      if num_lines equals -1, all lines are listed 
                      (thus the program can be used as a simple 'split' progam)
+  -s                 be sloppy about errors in input file: give warning but
+                     not abort
   -h                 show help on screen
 Either the combination of flags -i, -o and -f can be used, or the -l  flag.
 
@@ -115,29 +117,79 @@ Comment lines (and comments at the end of a line) are preceded by
 a double slash.
 Values are assigned with a = sign; strings are surrounded by
 double quotes. Maximum line length is 1024 characters (this can simply
-be extended).
+be extended). However, lines can be continued one the next line by
+ending a line with a backslash (the backslash may even appear in
+the middle of string!):
+
+EXAMPLE:
+bla bla bla \
+bla bla bla 
+will be interpreted as:
+bla bla bla bla bla bla
+
+A line in the format file can be one of three types:
+- definition of global attributes
+- definition of a time coordinate
+- definition of a variable
 
 
+Definition of global attributes
+-------------------------------
 Available global attributes (valid for the entire dataset/file)
-are: title and history. 
+are: title,  history and remark (of which the first two are
+conventional attributes). According to the conventions, 
+history should be an accumulative list of all conversions applied
+to the data (each program should append its own remarks about what
+it has done to the data).
 EXAMPLE
   title = "my own dataset" history = "axis rotation applied (01-07-99)"
+  remark = "timezone is GMT-6; sonic temperature not working correctly yet"
 
+Definition of a time coordinate
+-------------------------------
 For each of the available array ID's a time coordinate needs
 to be specified with token timevar:
 EXAMPLE:
    id = 100 timevar="my_time"
+
 Netcdf allows only one 'unlimited' dimension per file (a dimension
 of which the length is unkown in advance). Therefore, if the Campbell
 file contains data sets with different sampling rates, these should
-be written to different Netcdf files.
+be written to different Netcdf files. With the present program, there is
+a workaround for this: let the data from an arrayID that has a 
+storage interval different from the default one follow an arrayID
+that has the default storage interval. How does this work?
+Suppose we have a file with the following structure:
 
+100 182 1420
+200 2.34 3.45 2.34 5.42 5.64
+200 3.45 5.44 5.45 4.45 5.56
+200 5.45 5.67 5.56 5.45 3.45
+200 4.34 5.67 6.67 6.67 7.78
+100 182 1430
+200 2.34 5.68 6.67 7.78 8.89
+....
+
+If we want the data from arrayID 100 to be saved along with the data from
+arrayID 200, we can let arrayID follow arrayID 200 (see follow_id token
+below). The values to be stored are updated whenever a line with arrayID 200
+is encountered. If the first line with arrayID 200 is encountered
+after the first line of arrayID 100, the value of missing_value is
+stored (therefore, missing_value is a required token when follow_id is
+defined, see below).
+
+Note that the definitions of time variables should come before the use of
+that specific array ID for a variable definition.
+
+
+Definition of a variable
+------------------------
 Each variable in the input file is defined on one line of this
 format file.
 Required tokens are: 
   id         array ID
   col        column number
-  name       name to be used in netcdf file
+  var_name   name to be used in netcdf file
   units      string giving the units; examples as 
              proposed by the makers of netcdf:
                             10 kilogram meter second-2
@@ -160,8 +212,9 @@ Optional tokens are:
              data from; column col+ncol-1 is the
              last column from which data are assigned to
              this variable)
-  dimname    name of the second dimension of the current variable
-             (only use when ncol >1)
+  dim_name   name of the second dimension of the current variable
+             (only use when ncol >1; in that case it is a required
+             token)
   long_name  an alternative, more complete name
   scale_factor 
              value should be multiplied with ..
@@ -178,18 +231,24 @@ Optional tokens are:
              will be 4-byte aligned for each sample: each sample
              takes up at least 4 bytes, irrespective of the 
              actual size 
+  follow_id  let data with the current arrayID (defined with 'id =' token) 
+             be stored with the same frequency as the data with arrayID
+             defined with 'follow_id ='; use of follow_id requires the
+             definition of a missing_value, since for the first samples
+             to be stored, the actual value of the data may not be known.
 
 
 An example format file follows below:
 
-// Example format file
+// Example format file (which has nothing to do with the example data
+// shown before) !!
 title="first experiments with Campbell eddycorrelation equipment" 
 history="none"
 id = 100 timevar = "time"
-id = 100 col = 2 name="doy" units="days since 1999-01-01" long_name="doy of year" type="short"
-id = 100 col = 3 name="hour_min" units="-" type="short"
-id = 100 col = 4 name="sec" units="-" 
-id = 100 col = 5 ncol = 3 dimname="comp" name="velocity" units="meter second-1" 
-id = 100 col = 8 name="Tsonic" units="celsius" 
-id = 100 col = 9 name="diagnostic" units="-" type="short"
+id = 200 col = 2 var_name="doy" units="days since 1999-01-01" follow_id=100 missing_value=-1000
+id = 100 col = 3 var_name="hour_min" units="-" type="short"
+id = 100 col = 4 var_name="sec" units="-" 
+id = 100 col = 5 ncol = 3 dimname="comp" var_name="velocity" units="meter second-1" 
+id = 100 col = 8 var_var_name="Tsonic" units="celsius" 
+id = 100 col = 9 var_name="diagnostic" units="-" type="short"
 id = 100 col = 10 name="Krypton" units="mV" 

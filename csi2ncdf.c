@@ -12,8 +12,6 @@
 
 #define MAXCOL 100
 
-#define MAX_BYTES 256
-
 /* ........................................................................
  *
  * Program  : csi2ncdf
@@ -24,11 +22,20 @@
  *            (including the names etc. of the data) is read from
  *            a seprate text file, of which the name is also
  *            given on the command line.
- * Usage    : cwcsi2ncdf -i Inputfile -o Outputfile -f Formatfile
+ * Usage    : cwcsi2ncdf [-i Inputfile -o Outputfile -f Formatfile]
+                         [-l num_lines] -h
  *
- *            Inputfile     : name (including path) of inputfile
- *            Outputfile    : name (including path) of outputfile
- *            Formatfile    : name (including path) of format file
+ *            -i Inputfile  : name (including path) of inputfile
+ *            -o Outputfile : name (including path) of outputfile
+ *            -f Formatfile : name (including path) of format file
+ *            -l num_lines  : displays num_lines of the input datafile on
+ *                            screen; a value of -1 will list the entire
+ *                            file; in this way the program can be used as
+ *                            a replacement for Campbells split
+ *            -s            : be sloppy: do not abort on errors in input file
+ *                            but do give warnings
+ *            -h            : displays usage
+ *
  *
  * Method   : 
  * Remark   : 
@@ -46,7 +53,7 @@
  * ........................................................................
  */
 void  
-     do_conv_csi(FILE*, int, FILE*, int);
+     do_conv_csi(FILE*, int, FILE*, int, boolean);
 void
      info(boolean usage);        /* displays info about the program */
 
@@ -77,6 +84,7 @@ int main(int argc, char *argv[])
        *infile,                         /* input file */
        *formfile;                       /* format file */
     boolean
+        sloppy = FALSE,
         only_usage = TRUE;              /* switch for info */
     int
         status,
@@ -125,7 +133,12 @@ int main(int argc, char *argv[])
                /* Show help */
                case 'h' :
                  info(FALSE);
-		 return 0;
+          		  return 0;
+                 break;
+
+               /* Be sloppy on errors in input file */
+               case 's' :
+                 sloppy = TRUE;
                  break;
 
                /* Invalid flag */
@@ -178,7 +191,7 @@ int main(int argc, char *argv[])
     }
 
     /* (5) Do conversion */
-    do_conv_csi(infile, ncid, formfile, list_line);
+    do_conv_csi(infile, ncid, formfile, list_line, sloppy);
 
     /* (6) Close files */
     fclose(infile);
@@ -205,7 +218,8 @@ int main(int argc, char *argv[])
  * Date     : June 1999
  * ........................................................................
  */
-void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line)
+void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line,
+                 boolean sloppy)
 {
     /*
      * variable declarations
@@ -214,8 +228,8 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line)
      unsigned  char
             data[MAX_BYTES];
      float value;
-     size_t count;
-     int   array_id, i, num_bytes, curr_byte;
+     size_t count[2], start[2];
+     int   array_id, i, j, num_bytes, curr_byte;
      int   linenum, colnum, status, numcoldef;
      column_def
            coldef[MAXCOL];
@@ -228,7 +242,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line)
     /* (2) Initialize */
     linenum=0;
     colnum=0;
-    array_id = 0;
+    array_id = -1;
 
     /* (3) Loop input file, reading some data at once, and writing to
      *     netcdf file if array of data is full 
@@ -257,15 +271,22 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line)
                 curr_byte = curr_byte + 2;
                 break;
               case FOUR_BYTE_1:
-                  if (bytetype((data+curr_byte+2)) == FOUR_BYTE_2)
+                  if (bytetype((data+curr_byte+2)) == FOUR_BYTE_2) {
                       value =  conv_four_byte((data+curr_byte), (data+curr_byte+2));
-                    else
-                      error("unexpected byte pair in file",-1);
+                      colnum++;
+                      curr_byte = curr_byte + 4;
+		  } else {
+		      if (sloppy) {
+		        printf("warning unkown byte pair in 4 bytes\n");
+		        curr_byte++;
+		      } else {
+		        status = nc_close(ncid);
+                        error("unexpected byte pair in file",-1);
+		      }
+		    }
                   if ((list_line && linenum <= list_line) ||
 		      (list_line == -1))
                            printf("%f ", value);
-                  colnum++;
-                  curr_byte = curr_byte + 4;
                   break;
               case START_OUTPUT:
                   array_id =  conv_arrayid((data+curr_byte));
@@ -277,23 +298,45 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line)
                   curr_byte = curr_byte + 2;
                   break;
               default:
-                  error("unknown byte pair",-1);
+		  if (sloppy) {
+	  	    printf("warning unkown byte pair\n");
+		    curr_byte++;
+		  } else {
+		    status = nc_close(ncid);
+                    error("unknown byte pair",-1);
+		  }
                   break;
             }
 
             /* (3.2.2) Put sample in appropriate array */
             if (!list_line) {
               for (i=0; i< numcoldef; i++) 
-                 if (coldef[i].array_id == array_id &&
-                     coldef[i].col_num == colnum) {
+	         /*  Either:
+	          *  - correct array_id and column number, or
+	          *  - correct array_id and column number in range
+	          *    between first and last column of 2D variable, or
+	          *  - a variable that follows this array_id
+	          */
+                 if ((coldef[i].array_id == array_id &&
+                      ((coldef[i].col_num == colnum) ||
+                       ((coldef[i].col_num <= colnum) &&
+                        (coldef[i].col_num + coldef[i].ncol-1 >= colnum)
+                       ))
+                     ) ||
+		     ((coldef[i].follow_id == array_id) &&
+		      (colnum == 1))
+		    ) {
 		   /* First check if array is full; if so, dump data to
 		    * file */
                    if (coldef[i].curr_index == MAX_SAMPLES) {
-                      count = coldef[i].index - coldef[i].first_index;
+                      start[0]=coldef[i].first_index;
+                      start[1]=0;
+                      count[0]= coldef[i].index - coldef[i].first_index;
+                      count[1]=coldef[i].ncol;
                       status = nc_put_vara_float(
 		                 ncid, coldef[i].nc_var,
-                                 &(coldef[i].first_index),
-                                 &count,
+                                 start,
+                                 count,
                                  coldef[i].values);
                       coldef[i].first_index = coldef[i].index;
                       coldef[i].curr_index=0;
@@ -301,10 +344,36 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line)
                          nc_handle_error(status);
                    } 
 		   /* Add data sample to array */
-                   coldef[i].values[coldef[i].curr_index]
-			       = (float) value; 
-                   (coldef[i].index)++;
-                   (coldef[i].curr_index)++;
+		   /* This is not a following variable */
+		   if (coldef[i].follow_id == -1) {
+                     coldef[i].values[coldef[i].ncol*
+		                      coldef[i].curr_index+
+                                      colnum-coldef[i].col_num]
+			       = (float) value;
+                     if (coldef[i].col_num + coldef[i].ncol-1 ==
+		         colnum) {
+                        (coldef[i].index)++;
+                        (coldef[i].curr_index)++;
+                     }
+		   /* This is a following variable */
+		   } else {
+		      /* This is a line with its own array_id:
+		       * get data */
+		      if (coldef[i].array_id == array_id) {
+			coldef[i].follow_val[colnum-coldef[i].col_num]
+			       = (float) value;
+		      /* This is a line with the array_id to follow:
+		       * put previously stored data in array */
+		      } else {
+		        for (j=0; j<coldef[i].ncol; j++) {
+                          coldef[i].values[(coldef[i].ncol)*
+		                           coldef[i].curr_index+j]
+			       = coldef[i].follow_val[j];
+			}
+                        (coldef[i].index)++;
+                        (coldef[i].curr_index)++;
+		      }
+		   }
                  }
             }
          }
@@ -312,14 +381,18 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line)
     }
     /* (4) Dump the remains of the data samples to file */
     for (i=0 ; i<numcoldef; i++) {
-        count = coldef[i].index - coldef[i].first_index;
-	      status = nc_put_vara_float(
+        start[0]=coldef[i].first_index;
+        start[1]=0;
+        count[0]=coldef[i].index - coldef[i].first_index;
+        count[1]=coldef[i].ncol;
+
+        status = nc_put_vara_float(
 		  ncid, coldef[i].nc_var,
-		  &(coldef[i].first_index),
-		  &count,
+		  start,
+		  count,
 		  coldef[i].values);
-    if (status != NC_NOERR)
-           nc_handle_error(status);
+        if (status != NC_NOERR)
+             nc_handle_error(status);
 
     }
 
@@ -342,7 +415,7 @@ void info(boolean usage)
 {
     /* Give info about usage of program */
         printf("Usage: csi2ncdf [-i inputfile -o outputfile \n");
-        printf("       -f formatfile] [-l num_lines] -h   \n\n");
+        printf("       -f formatfile] [-l num_lines] -s -h  \n\n");
 
     /* If not only usage info requested, give more info */
         if (!usage)
@@ -353,6 +426,7 @@ void info(boolean usage)
         printf(" -l num_lines     : displays num_lines of the input datafile on screen\n");
         printf("                    a value of -1 will list the entire file; in this way\n");
         printf("                    the program can be used as a replacement for Campbells split\n");
+        printf(" -s               : be sloppy on errors in input file\n");
         printf(" -h               : displays usage\n");
         }
 }

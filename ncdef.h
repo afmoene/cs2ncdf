@@ -7,6 +7,7 @@
 #define NO_VALUE -9991
 #define MAX_SAMPLES 64
 #define MAX_LINELENGTH  1024
+#define MAX_STRINGLENGTH 1024
 
 /* ........................................................................
  * type declarations
@@ -14,6 +15,7 @@
  */
 typedef struct {
   int  array_id;
+  int  follow_id;
   int  col_num;
   char *name;
   char *long_name;
@@ -27,6 +29,7 @@ typedef struct {
   int nc_type;
   int nc_dim[2];
   float *values;
+  float *follow_val;
   size_t index;
   int curr_index;
   size_t first_index;
@@ -62,7 +65,7 @@ char *stringp, *stringp2, *outstring;
 
 
 void nc_handle_error(int nc_error) {
-char mess[255];
+char mess[MAX_STRINGLENGTH];
    if (nc_error != NC_NOERR) {
       sprintf(mess, "%s\n",nc_strerror(nc_error));
       error(mess, nc_error);
@@ -85,6 +88,9 @@ char mess[255];
  *            type             out  storage type
  *            globaldef        out  global definitions
  *            timename         out  time variable name
+ *            ncol             out  number of contiguous columns
+ *            dimname          out  name for extra dimension
+ *            follow_id        out  which array_id to follow
  * Return value: 1 if line was read succesfully, -1 of 0 otherwise
  *
  * Method   : 
@@ -97,11 +103,14 @@ int scan_line(FILE *formfile, int *id, int *col,
               float *valid_min, float *valid_max,
               float *missing_value, int *type,
               global_def *globaldef,
-	      char *timename, int *ncol, char *dimname) {
+	      char *timename, int *ncol, char *dimname,
+	      int *follow_id) {
 
-char line[MAX_LINELENGTH], linecopy[MAX_LINELENGTH], *stringp, dumstring[255];
-int  pos, status, i;
-boolean 
+char *line, *linecopy, *stringp, dumline[MAX_LINELENGTH],
+     dumstring[MAX_STRINGLENGTH], mess[2*MAX_LINELENGTH], *slashp;
+int  pos, status, i, j;
+boolean
+     otherline = TRUE,
      id_found = FALSE,
      col_found = FALSE,
      name_found = FALSE,
@@ -115,14 +124,27 @@ boolean
      time_found = FALSE,
      type_found = FALSE,
      ncol_found = FALSE,
-     dimname_found = FALSE;
+     dimname_found = FALSE,
+     follow_id_found = FALSE;
 
     /* (1) Get one line of text */
-    for (i=0; i< 256; i++) {
+    line = (char *) malloc(MAX_LINELENGTH*sizeof(char));
+    for (i=0; i<MAX_LINELENGTH; i++) {
        line[i] = '\0';
-       linecopy[i] = '\0';
     }
-    if (!fgets(line, sizeof(line), formfile)) return 0;
+    while (otherline) {
+       if (!fgets(dumline, sizeof(dumline), formfile)) return 0;
+       if (!(slashp = strrchr(dumline,'\\')))
+          otherline = FALSE;
+       linecopy = (char *) malloc(
+                    (strlen(line)+strlen(dumline)-1)*sizeof(char));
+       strcpy(linecopy, line);
+       strncat(linecopy, dumline, (slashp-dumline)/sizeof(char));
+       free(line);
+       line = (char *) malloc(strlen(linecopy)*sizeof(char));
+       strcpy(line, linecopy);
+    }
+
 
     /* (2) Strip any comments */
     pos = strcspn(line, "//");
@@ -157,7 +179,7 @@ boolean
     }
 
     /* (3.3) Name */
-    if ( (stringp = strstr(linecopy, "name")) ) {
+    if ( (stringp = strstr(linecopy, "var_name")) ) {
         if ( (stringp = strstr(stringp, "=")) ) {
            if (!strcpy(name, quoted_string(stringp))) 
               error("could not convert name", -1);
@@ -303,8 +325,8 @@ boolean
         }
     }
 
-    /* (3.5)  Name of extra dimension */
-    if ( (stringp = strstr(linecopy, "dimname")) ) {
+    /* (3.13)  Name of extra dimension */
+    if ( (stringp = strstr(linecopy, "dim_name")) ) {
         if ( (stringp = strstr(stringp, "=")) ) {
            if (!strcpy(dimname, quoted_string(stringp)))
               error("could not convert name of extra dimension ", -1);
@@ -312,6 +334,19 @@ boolean
               dimname_found = TRUE;
         } else {
               error("could not find = sign for name of extra dimension", -1);
+        }
+    }
+
+    /* (3.14) Follow array ID */
+    if ( (stringp = strstr(linecopy, "follow_id")) ) {
+        if ( (stringp = strstr(stringp, "=")) ) {
+           status = sscanf(stringp, "=%i", follow_id);
+           if (status != 1) 
+              error("could not convert follow array ID", -1);
+           else
+              follow_id_found = TRUE;
+        } else {
+              error("could not find = sign for follow array ID", -1);
         }
     }
 
@@ -355,14 +390,19 @@ boolean
         error("number of columns defined, but no name for extra dimension",-1);
      }
 
+     if (follow_id_found && !missing_value_found) {
+        error("when follow_id defined, also missing_value should be defined",-1);
+     }
+
      if (id_found || col_found || name_found || unit_found) {
         if ((id_found && col_found && name_found && unit_found) ||
 	    (id_found && time_found))
            return 1;
-        else
-           printf("%u %u %u %u\n", id_found, col_found, name_found, unit_found);
-           error("incomplete line in format file", -1);
+        else {
+           sprintf(mess, "incomplete line in format file:\n %s\n", linecopy);
+           error(mess, -1);
            return 0;
+        }
      }
 
      return 0;
@@ -386,10 +426,11 @@ void def_nc_file(int ncid, FILE *formfile,
                  column_def *coldef, int *numcoldef, int maxnumcoldef) {
 int 
     status,
-    i, arrayid, column, numtimedef, type, dimid, ncol, newdim, ndims;
+    i, j,arrayid, column, numtimedef, type, dimid, ncol, 
+    newdim, ndims, follow_id, search_id;
 char
-    name[255], unit[255], long_name[255],
-    timename[255], mess[255], dimname[255];
+    name[MAX_STRINGLENGTH], unit[MAX_STRINGLENGTH], long_name[MAX_STRINGLENGTH],
+    timename[MAX_STRINGLENGTH], mess[MAX_STRINGLENGTH], dimname[MAX_STRINGLENGTH];
 float
     scale_factor, add_offset, valid_min, valid_max, missing_value;
 global_def
@@ -417,16 +458,18 @@ boolean
        missing_value = NO_VALUE;
        type = NC_FLOAT;
        ncol = 1;
+       follow_id = -1;
        
        /* (2.2) Get info from a line */
        if (scan_line(formfile, &arrayid, &column, name, unit, 
                      long_name, &scale_factor, &add_offset,
                      &valid_min, &valid_max, &missing_value, &type,
-                     &globaldef, timename, &ncol, dimname)) {
+                     &globaldef, timename, &ncol, dimname,
+		     &follow_id)) {
 
 	  /* 2.2.1) This is a time coordinate definition */
 	  if (strlen(timename)) {
-              /* Check whether a time coordinate was definid already for
+              /* Check whether a time coordinate was defined already for
                * this Array ID */
 	      for (i=0; i<numtimedef; i++) {
 	          if (timedef[i].array_id ==arrayid) {
@@ -471,19 +514,24 @@ boolean
 	      strcpy((*(coldef+*numcoldef)).unit, unit);
 	      /* Define netcdf type */
 	      (*(coldef+*numcoldef)).nc_type = type;
-	      /* Define dimension type */
-	      found_timedim = FALSE;
-	      for (i=0; i < numtimedef; i++) {
-	         if (timedef[i].array_id == arrayid) {
-	            (*(coldef+*numcoldef)).nc_dim[0] =
-		       timedef[i].nc_dim;
-		     found_timedim = TRUE;
+	      /* Define time dimension */
+              if (follow_id == -1)
+                 search_id = arrayid;
+              else
+                 search_id = follow_id;
+              found_timedim = FALSE;
+              for (i=0; i < numtimedef; i++) {
+                 if (timedef[i].array_id == search_id) {
+                    (*(coldef+*numcoldef)).nc_dim[0] =
+                       timedef[i].nc_dim;
+                    found_timedim = TRUE;
                  }
               }
-	      if (!found_timedim) {
-                  sprintf(mess,"could not find time dimension for arrayID %i\n", arrayid);
-	          error(mess,-1);
+              if (!found_timedim) {
+                 sprintf(mess,"could not find time dimension for arrayID %i\n", search_id);
+                 error(mess,-1);
               }
+
               /* number of columns */
               (*(coldef+*numcoldef)).ncol = ncol;
               if (ncol > 1) {
@@ -513,7 +561,20 @@ boolean
               (*(coldef+*numcoldef)).values = 
 	           (float *) malloc(sizeof(float)*MAX_SAMPLES*
 	                     (*(coldef+*numcoldef)).ncol);
-
+	      /* Array Id to follow (faster changing) */
+              (*(coldef+*numcoldef)).follow_id = follow_id;
+	      
+              /* Make room for values that are kept for variables
+               * that follow other array ID */
+	      if (follow_id != -1) {
+                (*(coldef+*numcoldef)).follow_val = 
+	           (float *) malloc(sizeof(float)*
+	                     (*(coldef+*numcoldef)).ncol);
+		for (j=0; j<ncol; j++) {
+		   (*(coldef+*numcoldef)).follow_val[j] = 
+		    missing_value;
+		}
+	      }
 	      /* Initialize counters */
 	      (*(coldef+*numcoldef)).index = 0;
 	      (*(coldef+*numcoldef)).curr_index = 0;
