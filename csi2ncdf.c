@@ -305,6 +305,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                   break;
               case START_OUTPUT:
                   array_id   =   conv_arrayid((data+curr_byte));
+                  // printf("%i\n", linenum);
                   linenum++;
                   colnum=1;
                   if ((list_line   &&   linenum <= list_line) ||
@@ -314,6 +315,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                   break;
               case DUMMY_WORD:
                   printf("found dummy word on line %i\n", linenum);
+                  curr_byte =   curr_byte +   2;
                   break;
               default:
                   if (sloppy) {
