@@ -4,17 +4,18 @@
 #define TWO_BYTE       2
 #define FOUR_BYTE_1    3
 #define FOUR_BYTE_2    4
+#define DUMMY_WORD     5
 
-#define MASK_START_OUTPUT 0xE0
-#define MASK_1_OF_FOUR 0x20
-// #define MASK_3_OF_FOUR 0xE0
-#define MASK_3_OF_FOUR 0xE0
+#define MASK_START_OUTPUT 0xFC
+#define MASK_1_OF_FOUR 0x3C
+#define MASK_3_OF_FOUR 0xFC
 #define MASK_1_OF_TWO 0x1C
-#define PATT_START_OUTPUT 0xE0
-#define PATT_1_OF_FOUR 0x00
-//#define PATT_3_OF_FOUR 0x20
-#define PATT_3_OF_FOUR 0x20
+#define MASK_DUMMY_WORD 0xFF
+#define PATT_START_OUTPUT 0xFC
+#define PATT_1_OF_FOUR 0x1C
+#define PATT_3_OF_FOUR 0x3C
 #define PATT_1_OF_TWO 0x1C
+#define PATT_DUMMY_WORD 0x7F
 
 #define MASK_ARRAY_ID 0x03
 
@@ -36,7 +37,7 @@
 #define PATT_4_DECIMAL6 0x82
 
 #define NO_VALUE -9991
-#define MAX_BYTES 1024
+#define MAX_BYTES 10000
 
 
 /* ........................................................................
@@ -68,15 +69,17 @@ long byte2bin(unsigned char c) {
  */
 unsigned char bytetype(unsigned char byte[2]) {
 
-//    printf("%i %i %i %i %i\n", byte[0], byte[1], byte[0]&MASK_1_OF_FOUR, PATT_1_OF_FOUR, byte[0]&MASK_3_OF_FOUR,PATT_3_OF_FOUR);
+    // printf("%i %i %i %i %i\n", byte[0], byte[1], byte[0]&MASK_1_OF_FOUR, PATT_1_OF_FOUR, byte[0]&MASK_3_OF_FOUR,PATT_3_OF_FOUR);
     if ((byte[0] & (unsigned char) MASK_1_OF_TWO) != PATT_1_OF_TWO) {
         return ((unsigned char) TWO_BYTE);
-    } else if ((byte[0] & (unsigned char) MASK_START_OUTPUT) == PATT_START_OUTPUT) {
+    } else if ((byte[0] & (unsigned char) MASK_START_OUTPUT) == (unsigned char) PATT_START_OUTPUT) {
         return ((unsigned char) START_OUTPUT);
-    } else if ((byte[0] & (unsigned char) MASK_1_OF_FOUR) == PATT_1_OF_FOUR) {
+    } else if ((byte[0] & (unsigned char) MASK_1_OF_FOUR) == (unsigned char) PATT_1_OF_FOUR) {
         return ((unsigned char) FOUR_BYTE_1);
-    } else if ((byte[0] & (unsigned char) MASK_3_OF_FOUR) == PATT_3_OF_FOUR) {
+    } else if ((byte[0] & (unsigned char) MASK_3_OF_FOUR) == (unsigned char) PATT_3_OF_FOUR) {
         return ((unsigned char) FOUR_BYTE_2);
+    } else if ((byte[0] & (unsigned char) MASK_DUMMY_WORD) == (unsigned char) PATT_DUMMY_WORD) {
+        return ((unsigned char) DUMMY_WORD);
     } else {
         return (unsigned char) 0;
     }

@@ -10,8 +10,10 @@
 #include   "csibin.h"
 #include   "in_out.h"
 #include   "error.h"
+#include   "csicond.h"
 
 #define MAXCOL   100
+// #define MAXCOND  100
 #define CSI2NCDF_VER "1.2.3"
 
 /* ........................................................................
@@ -55,7 +57,8 @@
  * ........................................................................
  */
 void   
-     do_conv_csi(FILE*,   int, FILE*,   int, boolean);
+     do_conv_csi(FILE*,   int, FILE*,   int, boolean,
+                 maincond_def loc_cond[MAXCOND], int) ;
 void
      info(boolean   usage);         /* displays info about the program */
 
@@ -91,7 +94,10 @@ int main(int argc, char   *argv[])
     int
         status,
         list_line   = 0,
-        ncid;
+        ncid,
+        n_cond = 0;
+    maincond_def
+        loc_cond[MAXCOND];
     /* ....................................................................
      */
 
@@ -142,6 +148,18 @@ int main(int argc, char   *argv[])
                case 's'   :
                  sloppy   = TRUE;
                  break;
+                 
+               /* Condition */
+               case 'c'   :
+                  c = (*(argv[0] + 2));
+                  n_cond += 1;
+                  cmd_arg(&argv, &argc,   2,   dumstring);
+                  (loc_cond[n_cond-1]).cond_text =
+                      (char *) malloc(strlen(dumstring)+1);
+                  strcpy(loc_cond[n_cond-1].cond_text, dumstring);
+                  parse_main_cond(&(loc_cond[n_cond-1]));
+                  break;
+
 
                /* Invalid flag */
                default :
@@ -193,7 +211,8 @@ int main(int argc, char   *argv[])
     }
 
     /* (5) Do conversion */
-    do_conv_csi(infile,   ncid,   formfile, list_line,   sloppy);
+    do_conv_csi(infile,   ncid,   formfile, list_line,   sloppy,
+                loc_cond, n_cond);
 
     /* (6) Close files */
     fclose(infile);
@@ -221,7 +240,7 @@ int main(int argc, char   *argv[])
  * ........................................................................
  */
 void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
-                 boolean sloppy)
+                 boolean sloppy, maincond_def loc_cond[MAXCOND], int n_cond)
 {
     /*
      * variable declarations
@@ -229,7 +248,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      */
      unsigned   char
             buffer[MAX_BYTES], data[MAX_BYTES*2];
-     float value;
+     float value, timvalue;
      size_t   count[2], start[2];
      int     array_id,   i,   j,   num_bytes, curr_byte, timcol, rest_byte;
      int     linenum, colnum, status,  numcoldef;
@@ -305,6 +324,9 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                   break;
               case START_OUTPUT:
                   array_id   =   conv_arrayid((data+curr_byte));
+                  /* Value may be needed for condition checks */
+                  value = (float) array_id;
+                  reset_cond(loc_cond, n_cond);
                   // printf("%i\n", linenum);
                   linenum++;
                   colnum=1;
@@ -328,6 +350,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                   }
                   break;
             } /* switch */
+            
             /* (3.2.2) Put sample in appropriate array */
             if   (!list_line) {
                for   (i=0;   i<   numcoldef; i++) {
@@ -382,6 +405,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                                         coldef[i].curr_index+
                                         colnum-coldef[i].col_num]
                            = (float) value;
+                       check_cond(loc_cond, n_cond, array_id, colnum, value);
                        if (coldef[i].col_num + coldef[i].ncol-1 == colnum) {
                           (coldef[i].index)++;
                           (coldef[i].curr_index)++;
@@ -403,6 +427,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                       if (coldef[i].array_id == array_id)   {
                          coldef[i].follow_val[colnum-coldef[i].col_num] =
                             (float) value;
+                         check_cond(loc_cond, n_cond, array_id, colnum, value);
                          coldef[i].got_follow_val = TRUE;
                       /* This is a line with the array_id to follow:
                        * put previously stored data in array */
@@ -423,14 +448,14 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                       }
                       if (coldef[i].time_comp) {
                          if (coldef[i].time_csi_hm)
-                            value = conv_hour_min(coldef[i].follow_val[0]);
+                            timvalue = conv_hour_min(coldef[i].follow_val[0]);
                          else
-                            value = coldef[i].follow_val[0];
+                            timvalue = coldef[i].follow_val[0];
                          timcol=coldef[i].time_colnum;
                          if (coldef[timcol].time_got_comp == 0)
                             coldef[timcol].values[coldef[timcol].curr_index]   = 0.0;
                          coldef[timcol].values[coldef[timcol].curr_index]+=
-                            (value-coldef[i].time_offset)*coldef[i].time_mult;
+                            (timvalue-coldef[i].time_offset)*coldef[i].time_mult;
                          coldef[timcol].time_got_comp++;
                       } /* if */
                    } /* else */

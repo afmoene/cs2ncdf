@@ -475,8 +475,8 @@ boolean
                      long_name, &scale_factor, &add_offset,
                      &valid_min, &valid_max, &missing_value, &type,
                      &globaldef, timename, &ncol, dimname,
-		     &follow_id, &time_comp, &time_csi_hm,
-		     &time_mult, &time_offset)) {
+          		      &follow_id, &time_comp, &time_csi_hm,
+		               &time_mult, &time_offset)) {
 
 	  /* 2.2.1) This is a time coordinate definition */
 	  if (strlen(timename)) {
@@ -583,7 +583,7 @@ boolean
                           newdim = i;
                        else {
                           sprintf(mess, "already have dimension with name %s, but has length %i instead of %i\n",
-                                  dimname, get_len, ncol);
+                                  dimname, (int) get_len, ncol);
                           error(mess,-1);
                        }
                     }
@@ -616,13 +616,13 @@ boolean
 	      /* Missing value */
 	      (*(coldef+*numcoldef)).missing_value = missing_value;
 	      /* Make room for floats (conversions handled by netcdf */
-              (*(coldef+*numcoldef)).values = 
+         (*(coldef+*numcoldef)).values =
 	           (float *) malloc(sizeof(float)*MAX_SAMPLES*
 	                     (*(coldef+*numcoldef)).ncol);
 	      /* Array Id to follow (faster changing) */
-              (*(coldef+*numcoldef)).follow_id = follow_id;
-              if (follow_id > 0)
-                (*(coldef+*numcoldef)).got_follow_val = FALSE;
+         (*(coldef+*numcoldef)).follow_id = follow_id;
+         if (follow_id > 0)
+             (*(coldef+*numcoldef)).got_follow_val = FALSE;
 	      
               /* Make room for values that are kept for variables
                * that follow other array ID */
@@ -630,9 +630,9 @@ boolean
                 (*(coldef+*numcoldef)).follow_val = 
 	           (float *) malloc(sizeof(float)*
 	                     (*(coldef+*numcoldef)).ncol);
-		for (j=0; j<ncol; j++) {
-		   (*(coldef+*numcoldef)).follow_val[j] = 
-		    missing_value;
+   		for (j=0; j<ncol; j++) {
+   		   (*(coldef+*numcoldef)).follow_val[j] = 
+   		    missing_value;
 		}
 	      }
 	      /* Initialize counters */
