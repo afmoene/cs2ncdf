@@ -1,5 +1,8 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.6: 2003-09-25 (arnold.moene@wur.nl)
+* changed message when dummy word is found: one mention + line that states the
+  number of repetitions.
 Version 2.2.5: 2002-11-18 (arnold.moene@wur.nl)
 * improved (= debugged) string handling in ncdef.h. Errors therein
   were the most probable cause of crashes on Windows XP (I hope)

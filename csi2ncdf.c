@@ -34,7 +34,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.2.5"
+#define CSI2NCDF_VER "2.2.6"
 #define FTYPE_CSIBIN 1
 #define FTYPE_TXTCSV 2
 #define FTYPE_TXTSSV 3
@@ -130,6 +130,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      int     array_id,   i,   j,   num_bytes, curr_byte, timcol, rest_byte;
      int     linenum, colnum, status,  numcoldef;
      int     wanted_data, ncol, def_array_id, l_index, l_curr_index;
+     int     ndummy;
      char    *printline  , dumstring[100];
      boolean have_start, have_stop, start_data, stop_data, end_txtline,
              valid_sample;
@@ -170,6 +171,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      */      
     curr_byte = 0;
     num_bytes = 0;
+    ndummy = 0;
     while ((!stop_data) &&
            (!list_line && !feof(infile)) ||
            (linenum <= list_line   &&   !feof(infile))   ||
@@ -214,6 +216,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 	      } else
                   myswitch = bytetype((data+curr_byte));
 	      valid_sample = FALSE;
+	      if ((ndummy > 0) && (myswitch != DUMMY_WORD)) {
+                  printf("previous message repeated %i times \n;", ndummy);
+		  ndummy = 0;
+              }
               switch (myswitch)   {
                  case TXT_VALUE:
 	             value = txtdata[colnum];
@@ -413,7 +419,9 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      break;
 
                  case DUMMY_WORD:
-                     printf("found dummy word on line %i\n", linenum);
+		     if (ndummy == 0) 
+                        printf("found dummy word on line %i\n", linenum);
+		     ndummy++;
                      curr_byte =   curr_byte +   2;
 			/* Set column number to -1 to show that something is 
 			 * wrong */ 
