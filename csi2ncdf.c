@@ -12,7 +12,7 @@
 #include   "error.h"
 
 #define MAXCOL   100
-#define CSI2NCDF_VER "1.2.2"
+#define CSI2NCDF_VER "1.2.3"
 
 /* ........................................................................
  *
@@ -228,7 +228,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      *
      */
      unsigned   char
-            buffer[MAX_BYTES], data[MAX_BYTES];
+            buffer[MAX_BYTES], data[MAX_BYTES*2];
      float value;
      size_t   count[2], start[2];
      int     array_id,   i,   j,   num_bytes, curr_byte, timcol, rest_byte;
@@ -270,7 +270,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
             data[i+rest_byte] = buffer[i];
          num_bytes = num_bytes + rest_byte;
          curr_byte = 0;
-         while   (curr_byte < num_bytes-2)   {
+         while   (curr_byte < num_bytes-4)   {
             /* (3.2.1) Determine type of byte read */
             switch (bytetype((data+curr_byte)))   {
               case TWO_BYTE:
@@ -294,6 +294,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                           curr_byte++;
                       } else {
                           status   = nc_close(ncid);
+                          close(infile);
                           printf("line num = %i %i\n", linenum, colnum);
                           error("unexpected byte pair in file", -1);
                       }
@@ -311,12 +312,16 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                       printf("\n %i ", array_id);
                   curr_byte =   curr_byte +   2;
                   break;
+              case DUMMY_WORD:
+                  printf("found dummy word on line %i\n", linenum);
+                  break;
               default:
                   if (sloppy) {
                      printf("warning unkown byte pair\n");
                      curr_byte++;
                   } else   {
                      status = nc_close(ncid);
+                     close(infile);
                      error("unknown byte pair",-1);
                   }
                   break;
