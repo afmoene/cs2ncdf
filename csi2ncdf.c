@@ -12,7 +12,7 @@
 #include   "error.h"
 
 #define MAXCOL   100
-#define CSI2NCDF_VER "1.2"
+#define CSI2NCDF_VER "1.2.1"
 
 /* ........................................................................
  *
@@ -24,8 +24,8 @@
  *            (including the names etc. of the data) is read from
  *            a seprate text file, of which the name is also
  *            given on the command line.
- * Usage    : cwcsi2ncdf [-i Inputfile -o Outputfile -f Formatfile]
-                         [-l num_lines] -h
+ * Usage    : csi2ncdf [-i Inputfile -o Outputfile -f Formatfile]
+ *                     [-l num_lines] -h
  *
  *            -i Inputfile  : name (including path) of inputfile
  *            -o Outputfile : name (including path) of outputfile
@@ -228,11 +228,11 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      *
      */
      unsigned   char
-            data[MAX_BYTES];
+            buffer[MAX_BYTES], data[MAX_BYTES];
      float value;
      size_t   count[2], start[2];
-     int     array_id,   i,   j,   num_bytes, curr_byte, timcol;
-     int     linenum, colnum, status,   numcoldef;
+     int     array_id,   i,   j,   num_bytes, curr_byte, timcol, rest_byte;
+     int     linenum, colnum, status,  numcoldef;
      column_def
            coldef[MAXCOL];
     /* ....................................................................
@@ -249,18 +249,28 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
     /* (3) Loop input file, reading some data at once, and writing to
      *     netcdf file if array of data is full 
      */      
+    curr_byte = 0;
+    num_bytes = 0;
     while ((!list_line && !feof(infile)) ||
            (linenum <= list_line   &&   !feof(infile))   ||
            (list_line == -1 && !feof(infile))) {
 
+       rest_byte = num_bytes - curr_byte;
+       
        /* (3.1) Read data; if no more data in file, return  */
        if ((num_bytes =
-           fread(data, sizeof(data[0]), MAX_BYTES,   infile))   ==   0)
+           fread(buffer, sizeof(data[0]), MAX_BYTES, infile))   ==   0)
            return;
 		 /* (3.2) Data read, so process now: walk through data */
        else   {
-         curr_byte =   0;
-         while   (curr_byte < num_bytes)   {
+         /* Copy data from buffer to data */
+         for (i = 0; i < rest_byte; i++)
+            data[i] = data[curr_byte+i];
+         for (i = 0; i < num_bytes; i++)
+            data[i+rest_byte] = buffer[i];
+         num_bytes = num_bytes + rest_byte;
+         curr_byte = 0;
+         while   (curr_byte < num_bytes-2)   {
             /* (3.2.1) Determine type of byte read */
             switch (bytetype((data+curr_byte)))   {
               case TWO_BYTE:
@@ -280,10 +290,12 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                   } else  {
                       if (sloppy)  {
                           printf("warning unkown byte pair in 4 bytes\n");
+                          printf("line num = %i %i\n", linenum, colnum);
                           curr_byte++;
                       } else {
                           status   = nc_close(ncid);
-                          error("unexpected byte pair in file",-1);
+                          printf("line num = %i %i\n", linenum, colnum);
+                          error("unexpected byte pair in file", -1);
                       }
                   }
                   if ((list_line   &&   linenum <= list_line) ||
@@ -428,7 +440,6 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
         start[1]=0;
         count[0]=coldef[i].index   - coldef[i].first_index;
         count[1]=coldef[i].ncol;
-
         status   = nc_put_vara_float(ncid, coldef[i].nc_var,
                                      start, count, coldef[i].values);
         if (status != NC_NOERR)

@@ -254,7 +254,8 @@ Construction of a time variable
 With the current program it is possible to construct a time variable from columns
 in the input file. This means that the program makes a new variable with the name
 given after 'timevar =' in the format file. Variable can have a number of attributes.
-For such a time variable, attributes that can be used are long_name and units (see before).
+For such a time variable, attributes that can be used are long_name and units and
+type (see before).
 An example declaration would be
 EXAMPLE:
    id = 100 timevar="my_time" long_name="decimal hours since midnight" 

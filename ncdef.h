@@ -424,11 +424,12 @@ void def_nc_file(int ncid, FILE *formfile,
 int 
     status,
     i, j,arrayid, column, type, dimid, ncol, 
-    newdim, follow_id, search_id, num_time_comp;
-size_t ndims;
+    newdim, follow_id, search_id, num_time_comp, numdims;
+size_t ndims, get_len;
 char
     name[MAX_STRINGLENGTH], unit[MAX_STRINGLENGTH], long_name[MAX_STRINGLENGTH],
-    timename[MAX_STRINGLENGTH], mess[MAX_STRINGLENGTH], dimname[MAX_STRINGLENGTH];
+    timename[MAX_STRINGLENGTH], mess[MAX_STRINGLENGTH], dimname[MAX_STRINGLENGTH],
+    get_name[MAX_STRINGLENGTH];
 float
     scale_factor, add_offset, valid_min, valid_max, missing_value,
     time_mult, time_offset;
@@ -568,11 +569,32 @@ boolean
               /* number of columns */
               (*(coldef+*numcoldef)).ncol = ncol;
               if (ncol > 1) {
-                 status = nc_def_dim(ncid, dimname,
-                                     (size_t) ncol, &newdim);
-                 (*(coldef+*numcoldef)).nc_dim[1] = newdim;
+                 /* First check whether this dimensions exists already */
+                 status = nc_inq_ndims(ncid, &numdims);
                  if (status != NC_NOERR)
                     nc_handle_error(status);
+                 newdim = -1;
+                 for (i = 0; i < numdims; i++) {
+                    status = nc_inq_dim(ncid, i, get_name, &get_len);
+                    if (status != NC_NOERR)
+                       nc_handle_error(status);
+                    if (!strcmp(get_name, dimname)) {
+                       if (get_len == ncol)
+                          newdim = i;
+                       else {
+                          sprintf(mess, "already have dimension with name %s, but has length %i instead of %i\n",
+                                  dimname, get_len, ncol);
+                          error(mess,-1);
+                       }
+                    }
+                 }
+                 if (newdim == -1) {
+                    status = nc_def_dim(ncid, dimname,
+                                        (size_t) ncol, &newdim);
+                    if (status != NC_NOERR)
+                       nc_handle_error(status);
+                 }
+                 (*(coldef+*numcoldef)).nc_dim[1] = newdim;
               }
 
 	      /* Long name */

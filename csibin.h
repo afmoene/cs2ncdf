@@ -7,10 +7,12 @@
 
 #define MASK_START_OUTPUT 0xE0
 #define MASK_1_OF_FOUR 0x20
+// #define MASK_3_OF_FOUR 0xE0
 #define MASK_3_OF_FOUR 0xE0
 #define MASK_1_OF_TWO 0x1C
 #define PATT_START_OUTPUT 0xE0
 #define PATT_1_OF_FOUR 0x00
+//#define PATT_3_OF_FOUR 0x20
 #define PATT_3_OF_FOUR 0x20
 #define PATT_1_OF_TWO 0x1C
 
@@ -66,6 +68,7 @@ long byte2bin(unsigned char c) {
  */
 unsigned char bytetype(unsigned char byte[2]) {
 
+//    printf("%i %i %i %i %i\n", byte[0], byte[1], byte[0]&MASK_1_OF_FOUR, PATT_1_OF_FOUR, byte[0]&MASK_3_OF_FOUR,PATT_3_OF_FOUR);
     if ((byte[0] & (unsigned char) MASK_1_OF_TWO) != PATT_1_OF_TWO) {
         return ((unsigned char) TWO_BYTE);
     } else if ((byte[0] & (unsigned char) MASK_START_OUTPUT) == PATT_START_OUTPUT) {
