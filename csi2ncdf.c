@@ -14,7 +14,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.0"
+#define CSI2NCDF_VER "2.0.1"
 
 /* ........................................................................
  *
@@ -100,7 +100,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      float value, timvalue;
      size_t   count[2], start[2];
      int     array_id,   i,   j,   num_bytes, curr_byte, timcol, rest_byte;
-     int     linenum, colnum, status,  numcoldef;
+     int     linenum, colnum, status,  numcoldef = 0;
      int     wanted_data;
      char    *printline = NULL, dumstring[100];
 

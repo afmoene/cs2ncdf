@@ -1,4 +1,4 @@
-CFLAGS = -g -ggdb3
+CFLAGS = -g -O2
 
 all: csi2ncdf 
 
