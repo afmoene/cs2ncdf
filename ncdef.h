@@ -279,7 +279,6 @@ boolean
     while (otherline) {
        if (!fgets(dumline, sizeof(dumline), formfile)) return 0;
        if (!(slashp = strrchr(dumline,'\\'))) {
-          printf("line = %s\n", dumline);
           otherline = FALSE;
           linecopy = get_clearstring(strlen(line)+strlen(dumline));
           strcpy(linecopy, line);
