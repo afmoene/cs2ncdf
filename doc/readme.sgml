@@ -2,9 +2,12 @@
 <!ENTITY gpl SYSTEM "gpl.sgml">
 ]>
 <article id="readme">
+
 <articleinfo>
 <title>Documentation for csi2ncdf</title>
 <author><firstname>Arnold</><surname>Moene</></author>
+
+
 <revhistory>
 <revision>
 <revnumber>2.1.0</revnumber>
@@ -12,6 +15,13 @@
 <revremark>$Id$</revremark>
 </revision>
 </revhistory>
+
+<copyright>
+<year>2000</year>
+<holder>Meterology and Air Quality Group (Wageningen University), Arnold Moene
+</holder>
+</copyright>
+
 <abstract>
 <para>
 This README file describes the program csi2ncdf. The purpose of the
@@ -22,7 +32,17 @@ less familiar with Campbell software and file formats.
 </abstract>
 </articleinfo>
 
-<sect1 id="preamble"><title>Preamble</title>
+<para>
+<address>
+<firstname>Arnold</firstname> <surname>Moene</surname>
+<email>arnold.moene@user.metair.wau.nl</email>
+<street>Duivendaal 2</street>
+<postcode>6701 AP</postcode> <city>Wageningen</city>
+<country>The Netherlands</country>
+</address>
+</para>
+
+
 <para>
 <screen>
 This program is free software; you can redistribute it and/or modify
@@ -39,9 +59,10 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 </screen>
-For a complete version of the GPL, see <xref linkend="gpl">.
 </para>
-</sect1>
+
+For a complete version of the GPL, see <xref linkend="gpl">.
+
 <sect1 id="intro"><title> Introduction</title>
 <para>
 The purpose of <command>csi2ncdf</command> is to convert the
