@@ -42,6 +42,7 @@ typedef struct {
   boolean i_am_time;
   int time_num_comp;
   int time_got_comp;
+  boolean got_follow_val;
 } column_def;
 
 typedef struct {
@@ -488,9 +489,12 @@ boolean
               /* Fill definition of time dimension, except for its
                * dimension ID */
               timedef.array_id = arrayid;
-              timedef.name = 
-               (char *)malloc(strlen(timename)*sizeof(char));
-              strcpy((timedef.name), timename);
+              if (strlen(timename)) {
+                 timedef.name =
+                   (char *)malloc(strlen(timename)*sizeof(char));
+                 strcpy((timedef.name), timename);
+              } else
+                 timedef.name = NULL;
 
               /* Check whether a time coordinate of this name exists
                * already and possibly get its dimension ID */
@@ -507,14 +511,21 @@ boolean
 	      /* May have a unit attribute, will be passed to
 	       * a variable with name timedef.name, if we are told
 	       * how to fill that variable */
-              timedef.unit = 
-                (char *)malloc(strlen(unit)*sizeof(char));
-              strcpy((timedef.unit), unit);
+              if (strlen(unit)) {
+                timedef.unit =
+                  (char *)malloc(strlen(unit)*sizeof(char));
+                strcpy((timedef.unit), unit);
+              } else
+                timedef.unit = NULL;
 
 	      /* Long name idem*/
-	      timedef.long_name =
-		   (char *)malloc(strlen(long_name)*sizeof(char));
-	      strcpy(timedef.long_name, long_name);
+              if (strlen(long_name)) {
+       	         timedef.long_name =
+     		     (char *)malloc(strlen(long_name)*sizeof(char));
+     	         strcpy(timedef.long_name, long_name);
+              } else
+                timedef.long_name = NULL;
+              
 	  } else {
 
 	  /* (2.2.2) This is a variable definition */
@@ -523,13 +534,19 @@ boolean
 	      /* Define column number */
 	      (*(coldef+*numcoldef)).col_num = column;
 	      /* Define name */
-	      (*(coldef+*numcoldef)).name = 
-            (char *)malloc(strlen(name)*sizeof(char));
-	      strcpy((*(coldef+*numcoldef)).name, name);
+              if (strlen(name)) {
+  	         (*(coldef+*numcoldef)).name =
+                    (char *)malloc(strlen(name)*sizeof(char));
+	         strcpy((*(coldef+*numcoldef)).name, name);
+              } else
+                 (*(coldef+*numcoldef)).name = NULL;
 	      /* Define units */
-	      (*(coldef+*numcoldef)).unit = 
-            (char *)malloc(strlen(unit)*sizeof(char));
-	      strcpy((*(coldef+*numcoldef)).unit, unit);
+              if (strlen(unit)) {
+	         (*(coldef+*numcoldef)).unit =
+                    (char *)malloc(strlen(unit)*sizeof(char));
+	         strcpy((*(coldef+*numcoldef)).unit, unit);
+              } else
+                 (*(coldef+*numcoldef)).unit = NULL;
 	      /* Define netcdf type */
 	      (*(coldef+*numcoldef)).nc_type = type;
 	      /* Define time dimension */
@@ -559,9 +576,12 @@ boolean
               }
 
 	      /* Long name */
-	      (*(coldef+*numcoldef)).long_name =
-		   (char *)malloc(strlen(long_name)*sizeof(char));
-	      strcpy((*(coldef+*numcoldef)).long_name, long_name);
+              if (strlen(long_name)) {
+	         (*(coldef+*numcoldef)).long_name =
+		     (char *)malloc(strlen(long_name)*sizeof(char));
+	         strcpy((*(coldef+*numcoldef)).long_name, long_name);
+              } else
+                 (*(coldef+*numcoldef)).long_name = NULL;
 
 	      /* Scale factor */
 	      (*(coldef+*numcoldef)).scale_factor = scale_factor;
@@ -579,6 +599,8 @@ boolean
 	                     (*(coldef+*numcoldef)).ncol);
 	      /* Array Id to follow (faster changing) */
               (*(coldef+*numcoldef)).follow_id = follow_id;
+              if (follow_id > 0)
+                (*(coldef+*numcoldef)).got_follow_val = FALSE;
 	      
               /* Make room for values that are kept for variables
                * that follow other array ID */
@@ -619,17 +641,26 @@ boolean
     
     if (num_time_comp) {
       /* Define name */
-      (*(coldef+*numcoldef)).name = 
-	(char *)malloc(strlen(timedef.name)*sizeof(char));
-      strcpy((*(coldef+*numcoldef)).name, timedef.name);
+      if (strlen(name)) {
+         (*(coldef+*numcoldef)).name =
+	   (char *)malloc(strlen(timedef.name)*sizeof(char));
+         strcpy((*(coldef+*numcoldef)).name, timedef.name);
+      } else
+        (*(coldef+*numcoldef)).name = NULL;
       /* Define units */
-      (*(coldef+*numcoldef)).unit = 
-	(char *)malloc(strlen(timedef.unit)*sizeof(char));
-      strcpy((*(coldef+*numcoldef)).unit, timedef.unit);
+      if (strlen(unit)) {
+         (*(coldef+*numcoldef)).unit =
+  	    (char *)malloc(strlen(timedef.unit)*sizeof(char));
+         strcpy((*(coldef+*numcoldef)).unit, timedef.unit);
+      } else
+         (*(coldef+*numcoldef)).unit = NULL;
       /* Define long_name */
-      (*(coldef+*numcoldef)).long_name = 
-	(char *)malloc(strlen(timedef.long_name)*sizeof(char));
-      strcpy((*(coldef+*numcoldef)).long_name, timedef.long_name);
+      if (strlen(long_name)) {
+         (*(coldef+*numcoldef)).long_name =
+	    (char *)malloc(strlen(timedef.long_name)*sizeof(char));
+         strcpy((*(coldef+*numcoldef)).long_name, timedef.long_name);
+      } else
+         (*(coldef+*numcoldef)).long_name = NULL;
       /* Define netcdf type */
       (*(coldef+*numcoldef)).nc_type = NC_FLOAT;
       /* Define time dimension */
@@ -684,7 +715,7 @@ boolean
           nc_handle_error(status);
 
       /* (3.2) Units attribute */
-      if (strlen((*(coldef+i)).unit)) {
+      if ((*(coldef+i)).unit != NULL) {
         status = nc_put_att_text(ncid, (*(coldef+i)).nc_var, "units",
                                strlen((*(coldef+i)).unit), 
                                (*(coldef+i)).unit);
@@ -694,12 +725,12 @@ boolean
       
 
       /* (3.3) Long_name attribute */
-      if (strlen((*(coldef+i)).long_name)) {
+      if ((*(coldef+i)).long_name != NULL) {
          status = nc_put_att_text(ncid, (*(coldef+i)).nc_var, 
                                   "long_name",
                                   strlen((*(coldef+i)).long_name), 
                                   (*(coldef+i)).long_name);
-         if (status != NC_NOERR) 
+          if (status != NC_NOERR)
             nc_handle_error(status);
       }
 
@@ -708,7 +739,7 @@ boolean
          status = nc_put_att_float(ncid, (*(coldef+i)).nc_var, 
                                    "scale_factor", NC_FLOAT, 1,
                                    &((*(coldef+i)).scale_factor));
-         if (status != NC_NOERR) 
+         if (status != NC_NOERR)
             nc_handle_error(status);
       }
 
@@ -755,7 +786,7 @@ boolean
 
     /* (4) Global attributes */
     /* (4.1) Title attribute */
-    if (strlen(globaldef.title)) {
+    if (globaldef.title != NULL) {
          status = nc_put_att_text(ncid, NC_GLOBAL, 
                                   "title",
                                   strlen(globaldef.title), 
@@ -765,7 +796,7 @@ boolean
     }
 
     /* (4.2) History attribute */
-    if (strlen(globaldef.history)) {
+    if (globaldef.history != NULL) {
          status = nc_put_att_text(ncid, NC_GLOBAL, 
                                   "history",
                                   strlen(globaldef.history), 
@@ -775,7 +806,7 @@ boolean
     }
 
     /* (4.3) Remark attribute */
-    if (strlen(globaldef.remark)) {
+    if (globaldef.remark != NULL) {
          status = nc_put_att_text(ncid, NC_GLOBAL, 
                                   "remark",
                                   strlen(globaldef.remark), 

@@ -1,16 +1,18 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
+/* $Revision$ */
+#include   <stdlib.h>
+#include   <stdio.h>
+#include   <string.h>
+#include   <math.h>
 
-#include "netcdf.h"
+#include   "netcdf.h"
 
-#include "ncdef.h"
-#include "csibin.h"
-#include "in_out.h"
-#include "error.h"
+#include   "ncdef.h"
+#include   "csibin.h"
+#include   "in_out.h"
+#include   "error.h"
 
-#define MAXCOL 100
+#define MAXCOL   100
+#define CSI2NCDF_VER "1.2"
 
 /* ........................................................................
  *
@@ -52,43 +54,43 @@
  * function protypes
  * ........................................................................
  */
-void  
-     do_conv_csi(FILE*, int, FILE*, int, boolean);
+void   
+     do_conv_csi(FILE*,   int, FILE*,   int, boolean);
 void
-     info(boolean usage);        /* displays info about the program */
+     info(boolean   usage);         /* displays info about the program */
 
 /* ........................................................................
  * global variable declarations
  * ........................................................................
  */
 char
-    program[100];                   /* name of program from command line */
+    program[100];                     /* name of program from command line */
 
 
 /* ........................................................................
  * main
  * ........................................................................
  */
-int main(int argc, char *argv[])
+int main(int argc, char   *argv[])
 {
     /*
      * variable declarations
      */
     char
         infname[255]="",                /* name of input file */
-        outfname[255]="",               /* name of output file */
-        formatfname[255]="",            /* name of format file */
-        dumstring[255]="",              /* dummy string */
+        outfname[255]="",                /* name of output file */
+        formatfname[255]="",             /* name of format file */
+        dumstring[255]="",                /* dummy string */
         mess[100];                      /* message passed to error */
     FILE
        *infile,                         /* input file */
-       *formfile;                       /* format file */
+       *formfile;                         /* format file */
     boolean
-        sloppy = FALSE,
-        only_usage = TRUE;              /* switch for info */
+        sloppy   = FALSE,
+        only_usage =   TRUE;                /* switch for info */
     int
         status,
-        list_line = 0,
+        list_line   = 0,
         ncid;
     /* ....................................................................
      */
@@ -101,62 +103,62 @@ int main(int argc, char *argv[])
     argc--;
 
     /* Cycle until all arguments read */
-    for ( ; argc > 0; argv++, --argc ) {
+    for ( ;   argc > 0; argv++,   --argc )   {
         /* variable declaration */
         char c, arg[100];
 
         /* Check for leading '-' in flag */
         if ((*argv)[0] == '-') {
-            c = (*(argv[0] + 1));
+            c = (*(argv[0]   + 1));
             switch (c) {
                /* Input file */
-               case 'o' :
-                 cmd_arg(&argv, &argc, 2, outfname);
+               case 'o'   :
+                 cmd_arg(&argv, &argc,   2,   outfname);
                  break;
 
                /* Output file */
-               case 'i' :
-                 cmd_arg(&argv, &argc, 2, infname);
+               case 'i'   :
+                 cmd_arg(&argv, &argc,   2,   infname);
                  break;
 
                /* Format file */
-               case 'f' :
-                 cmd_arg(&argv, &argc, 2, formatfname);
+               case 'f'   :
+                 cmd_arg(&argv, &argc,   2,   formatfname);
                  break;
 
                /* List number of lines */
-               case 'l' :
-                 cmd_arg(&argv, &argc, 2, dumstring);
-                 list_line = atoi(dumstring);
+               case 'l'   :
+                 cmd_arg(&argv, &argc,   2,   dumstring);
+                 list_line   = atoi(dumstring);
                  break;
 
                /* Show help */
-               case 'h' :
+               case 'h'   :
                  info(FALSE);
-          		  return 0;
+                 return   0;
                  break;
 
                /* Be sloppy on errors in input file */
-               case 's' :
-                 sloppy = TRUE;
+               case 's'   :
+                 sloppy   = TRUE;
                  break;
 
                /* Invalid flag */
                default :
-                  cmd_arg(&argv, &argc, 1, arg);
-                  printf("Invalid flag : %s\n", arg);
+                  cmd_arg(&argv,   &argc, 1, arg);
+                  printf("Invalid flag : %s\n",   arg);
                   info(TRUE);
                   break;
             }
-        } else {
-            strcpy(arg, argv[0]);
-            printf("Invalid flag : %s\n", arg);
+        } else   {
+            strcpy(arg,   argv[0]);
+            printf("Invalid flag : %s\n",   arg);
             info(TRUE);
         }
     }
 
     /* (3) Trap error situations */
-    only_usage = TRUE;
+    only_usage   = TRUE;
     if (!list_line && !strlen(outfname)) {
         info(only_usage);
         error("no output file specified\n", CMD_LINE_ERROR);
@@ -173,32 +175,32 @@ int main(int argc, char *argv[])
     /* (4) Open files and test for success */
     /* (4.1) Output file */
     if (!list_line) {
-      status = nc_create(outfname, NC_CLOBBER, &ncid);
-      if (status != NC_NOERR) 
+      status =   nc_create(outfname, NC_CLOBBER, &ncid);
+      if   (status != NC_NOERR)   
          nc_handle_error(status);
     }
 
     /* (4.2) Input file */
-    if ((infile = fopen(infname, "rb")) == NULL) {
-       sprintf(mess, "cannot open file %s for reading.\n", infname);
+    if ((infile =   fopen(infname,   "rb")) == NULL) {
+       sprintf(mess,   "cannot open file %s for reading.\n", infname);
        error(mess, (int) FILE_NOT_FOUND);
     }
 
     /* (4.3) Format file */
-    if (!list_line && (formfile = fopen(formatfname, "rb")) == NULL) {
-       sprintf(mess, "cannot open file %s for reading.\n", formatfname);
+    if (!list_line && (formfile = fopen(formatfname, "rb"))   ==   NULL)   {
+       sprintf(mess,   "cannot open file %s for reading.\n", formatfname);
        error(mess, (int) FILE_NOT_FOUND);
     }
 
     /* (5) Do conversion */
-    do_conv_csi(infile, ncid, formfile, list_line, sloppy);
+    do_conv_csi(infile,   ncid,   formfile, list_line,   sloppy);
 
     /* (6) Close files */
     fclose(infile);
     if (!list_line) {
       fclose(formfile);
-      status = nc_close(ncid);
-      if (status != NC_NOERR)
+      status =   nc_close(ncid);
+      if   (status != NC_NOERR)
           nc_handle_error(status);
     }
     return 0;
@@ -218,207 +220,220 @@ int main(int argc, char *argv[])
  * Date     : June 1999
  * ........................................................................
  */
-void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line,
+void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  boolean sloppy)
 {
     /*
      * variable declarations
      *
      */
-     unsigned  char
+     unsigned   char
             data[MAX_BYTES];
      float value;
-     size_t count[2], start[2];
-     int   array_id, i, j, num_bytes, curr_byte, timcol;
-     int   linenum, colnum, status, numcoldef;
+     size_t   count[2], start[2];
+     int     array_id,   i,   j,   num_bytes, curr_byte, timcol;
+     int     linenum, colnum, status,   numcoldef;
      column_def
            coldef[MAXCOL];
     /* ....................................................................
      */
     /* (1) Read definition of columns from format file */
     if (!list_line) 
-      def_nc_file(ncid, formfile, coldef, &numcoldef, (int) MAXCOL);
+      def_nc_file(ncid,   formfile, coldef,   &numcoldef,   (int)   MAXCOL);
 
     /* (2) Initialize */
     linenum=0;
     colnum=0;
-    array_id = -1;
+    array_id =   -1;
 
     /* (3) Loop input file, reading some data at once, and writing to
      *     netcdf file if array of data is full 
-     */     
+     */      
     while ((!list_line && !feof(infile)) ||
-           (linenum <= list_line && !feof(infile)) ||
+           (linenum <= list_line   &&   !feof(infile))   ||
            (list_line == -1 && !feof(infile))) {
 
        /* (3.1) Read data; if no more data in file, return  */
        if ((num_bytes =
-           fread(data, sizeof(data[0]), MAX_BYTES, infile)) == 0)
+           fread(data, sizeof(data[0]), MAX_BYTES,   infile))   ==   0)
            return;
-       else {
-
-         /* (3.2) Data read, so process now: walk through data */
-         curr_byte = 0;
-         while (curr_byte < num_bytes) {
+		 /* (3.2) Data read, so process now: walk through data */
+       else   {
+         curr_byte =   0;
+         while   (curr_byte < num_bytes)   {
             /* (3.2.1) Determine type of byte read */
-            switch (bytetype((data+curr_byte))) {
+            switch (bytetype((data+curr_byte)))   {
               case TWO_BYTE:
-                value = conv_two_byte((data+curr_byte));
-                if ((list_line && linenum <= list_line) ||
-                    (list_line == -1))
-                        printf("%f ", value);
-                colnum++;
-                curr_byte = curr_byte + 2;
-                break;
-              case FOUR_BYTE_1:
-                  if (bytetype((data+curr_byte+2)) == FOUR_BYTE_2) {
-                      value =  conv_four_byte((data+curr_byte), (data+curr_byte+2));
-                      colnum++;
-                      curr_byte = curr_byte + 4;
-		  } else {
-		      if (sloppy) {
-		        printf("warning unkown byte pair in 4 bytes\n");
-		        curr_byte++;
-		      } else {
-		        status = nc_close(ncid);
-                        error("unexpected byte pair in file",-1);
-		      }
-		    }
-                  if ((list_line && linenum <= list_line) ||
-		      (list_line == -1))
-                           printf("%f ", value);
-                  break;
-              case START_OUTPUT:
-                  array_id =  conv_arrayid((data+curr_byte));
-                  linenum++;
-                  colnum=1;
-                  if ((list_line && linenum <= list_line) ||
-		      (list_line == -1))
-                          printf("\n %i ", array_id);
+                  value =   conv_two_byte((data+curr_byte));
+                  if ((list_line && linenum   <=   list_line) ||
+                      (list_line == -1))
+                          printf("%f ", value);
+                  colnum++;
                   curr_byte = curr_byte + 2;
                   break;
-              default:
-		  if (sloppy) {
-	  	    printf("warning unkown byte pair\n");
-		    curr_byte++;
-		  } else {
-		    status = nc_close(ncid);
-                    error("unknown byte pair",-1);
-		  }
+              case FOUR_BYTE_1:
+                  if   (bytetype((data+curr_byte+2))   ==   FOUR_BYTE_2) {
+                      value =  conv_four_byte((data+curr_byte), 
+                          (data+curr_byte+2));
+                      colnum++;
+                      curr_byte = curr_byte + 4;
+                  } else  {
+                      if (sloppy)  {
+                          printf("warning unkown byte pair in 4 bytes\n");
+                          curr_byte++;
+                      } else {
+                          status   = nc_close(ncid);
+                          error("unexpected byte pair in file",-1);
+                      }
+                  }
+                  if ((list_line   &&   linenum <= list_line) ||
+                         (list_line == -1))
+                      printf("%f ", value);
                   break;
-            }
-
+              case START_OUTPUT:
+                  array_id   =   conv_arrayid((data+curr_byte));
+                  linenum++;
+                  colnum=1;
+                  if ((list_line   &&   linenum <= list_line) ||
+                        (list_line == -1))
+                      printf("\n %i ", array_id);
+                  curr_byte =   curr_byte +   2;
+                  break;
+              default:
+                  if (sloppy) {
+                     printf("warning unkown byte pair\n");
+                     curr_byte++;
+                  } else   {
+                     status = nc_close(ncid);
+                     error("unknown byte pair",-1);
+                  }
+                  break;
+            } /* switch */
             /* (3.2.2) Put sample in appropriate array */
-            if (!list_line) {
-              for (i=0; i< numcoldef; i++) 
-	         /*  Either:
-	          *  - correct array_id and column number, or
-	          *  - correct array_id and column number in range
-	          *    between first and last column of 2D variable, or
-	          *  - a variable that follows this array_id
-	          *  - first column and i am the time variable
-	          */
+            if   (!list_line) {
+               for   (i=0;   i<   numcoldef; i++) {
+                /*  Either:
+                 *  - correct array_id and column number, or
+                 *  - correct array_id and column number in range
+                 *    between first and last column of 2D variable, or
+                 *  - a variable that follows this array_id
+                 *  - first column and i am the time variable
+                 */
                  if ((coldef[i].array_id == array_id &&
-                      ((coldef[i].col_num == colnum) ||
-                       ((coldef[i].col_num <= colnum) &&
-                        (coldef[i].col_num + coldef[i].ncol-1 >= colnum)
+                      ((coldef[i].col_num   ==   colnum) ||
+                       ((coldef[i].col_num <= colnum)   &&
+                        (coldef[i].col_num +   coldef[i].ncol-1 >= colnum)
                        ))
                      ) ||
-		     ((coldef[i].follow_id == array_id) &&
-		      (colnum == 1)) ||
-		     (coldef[i].i_am_time)
-		    ) {
-		  
-		    
-		   if (colnum == 1 && coldef[i].i_am_time) {
-		       coldef[i].time_got_comp = 0;
-                   }
-		   if (coldef[i].i_am_time && 
-		       (coldef[i].time_got_comp == coldef[i].time_num_comp)) {
-		      coldef[i].curr_index++;
-		      coldef[i].index++;
-		      coldef[i].time_got_comp = 0;
-		   }
+                     ((coldef[i].follow_id   ==   array_id) &&
+                      (colnum == 1)
+                     ) ||
+                     (coldef[i].i_am_time)
+                    )   {
+                    if (coldef[i].i_am_time   &&   
+                          (coldef[i].time_got_comp == 
+                           coldef[i].time_num_comp)) {
+                       coldef[i].curr_index++;
+                       coldef[i].index++;
+                       coldef[i].time_got_comp   = 0;
+                    }
 
-		   /* First check if array is full; if so, dump data to
-		    * file */
-                   if (coldef[i].curr_index == MAX_SAMPLES) {
+                   /* First check if array is full; if so, dump data to
+                    * file */
+                   if (coldef[i].curr_index == MAX_SAMPLES)   {
                       start[0]=coldef[i].first_index;
                       start[1]=0;
-                      count[0]= coldef[i].index - coldef[i].first_index;
+                      count[0]= coldef[i].index   - coldef[i].first_index;
                       count[1]=coldef[i].ncol;
                       status = nc_put_vara_float(
-		                 ncid, coldef[i].nc_var,
+                       ncid, coldef[i].nc_var,
                                  start,
                                  count,
                                  coldef[i].values);
                       coldef[i].first_index = coldef[i].index;
                       coldef[i].curr_index=0;
-                      if (status != NC_NOERR) 
+                      if (status   !=   NC_NOERR) 
                          nc_handle_error(status);
-                   } 
-		   /* Add data sample to array */
-		   /* This is not a following variable and not time */
-		   if (coldef[i].follow_id == -1 && !coldef[i].i_am_time) {
-                     coldef[i].values[coldef[i].ncol*
-		                      coldef[i].curr_index+
-                                      colnum-coldef[i].col_num]
-			       = (float) value;
-                     if (coldef[i].col_num + coldef[i].ncol-1 ==
-		         colnum) {
-                        (coldef[i].index)++;
-                        (coldef[i].curr_index)++;
-		     if (coldef[i].time_comp) {
-		        if (coldef[i].time_csi_hm) value = conv_hour_min(value);
-			timcol=coldef[i].time_colnum;
-			if (coldef[timcol].time_got_comp == 0)
-			   coldef[timcol].values[coldef[timcol].curr_index] = 0.0;
-			coldef[timcol].values[coldef[timcol].curr_index]+=
-			    (value-coldef[i].time_offset)*coldef[i].time_mult;
-			coldef[timcol].time_got_comp++;
-		     }
-                     }
-		   /* This is a following variable and not time */
-		   } else if (!coldef[i].i_am_time) {
-		      /* This is a line with its own array_id:
-		       * get data */
-		      if (coldef[i].array_id == array_id) {
-			coldef[i].follow_val[colnum-coldef[i].col_num]
-			       = (float) value;
-		      /* This is a line with the array_id to follow:
-		       * put previously stored data in array */
-		      } else {
-		        for (j=0; j<coldef[i].ncol; j++) {
-                          coldef[i].values[(coldef[i].ncol)*
-		                           coldef[i].curr_index+j]
-			       = coldef[i].follow_val[j];
-			}
-                        (coldef[i].index)++;
-                        (coldef[i].curr_index)++;
-		      }
-		   }
-                 }
-            }
-         }
-       } 
-    }
+                   }
+                   /* Add data sample to array */
+                   /* This is not a following variable and not time */
+                   if ((coldef[i].follow_id   ==   -1)   &&
+                       (!coldef[i].i_am_time)) {
+                       coldef[i].values[coldef[i].ncol*
+                                        coldef[i].curr_index+
+                                        colnum-coldef[i].col_num]
+                           = (float) value;
+                       if (coldef[i].col_num + coldef[i].ncol-1 == colnum) {
+                          (coldef[i].index)++;
+                          (coldef[i].curr_index)++;
+                          if (coldef[i].time_comp)   {
+                             if (coldef[i].time_csi_hm) 
+				                    value = conv_hour_min(value);
+                             timcol=coldef[i].time_colnum;
+                             if (coldef[timcol].time_got_comp   ==   0)
+                                 coldef[timcol].values[coldef[timcol].curr_index] =   0.0;
+                             coldef[timcol].values[coldef[timcol].curr_index]+=
+                               (value-coldef[i].time_offset)*coldef[i].time_mult;
+                             coldef[timcol].time_got_comp++;
+                          }
+                       }
+                   /* This is a following variable and not time */
+                   } else if (!coldef[i].i_am_time)   {
+                      /* This is a line with its own array_id:
+                       * get data */
+                      if (coldef[i].array_id == array_id)   {
+                         coldef[i].follow_val[colnum-coldef[i].col_num] =
+                            (float) value;
+                         coldef[i].got_follow_val = TRUE;
+                      /* This is a line with the array_id to follow:
+                       * put previously stored data in array */
+                      } else {
+                          if (coldef[i].got_follow_val) {
+                             for (j=0; j<coldef[i].ncol; j++)
+                                coldef[i].values[(coldef[i].ncol)*
+                                                 coldef[i].curr_index+j]
+                                   = coldef[i].follow_val[j];
+	                         (coldef[i].index)++;
+                            (coldef[i].curr_index)++;
+                          } else {
+									  printf("error: do not have value for following variable %s\n",
+                                    coldef[i].name);
+                             nc_close(ncid);
+									  exit;
+                          }
+                      }
+                      if (coldef[i].time_comp) {
+                         if (coldef[i].time_csi_hm)
+                            value = conv_hour_min(coldef[i].follow_val[0]);
+                         else
+                            value = coldef[i].follow_val[0];
+                         timcol=coldef[i].time_colnum;
+                         if (coldef[timcol].time_got_comp == 0)
+                            coldef[timcol].values[coldef[timcol].curr_index]   = 0.0;
+                         coldef[timcol].values[coldef[timcol].curr_index]+=
+                            (value-coldef[i].time_offset)*coldef[i].time_mult;
+                         coldef[timcol].time_got_comp++;
+                      } /* if */
+                   } /* else */
+                 } /* if */
+               } /* for */
+            } /* if */
+         } /* while */
+       }  /* else */ 
+    } /* while */
+
     /* (4) Dump the remains of the data samples to file */
-    for (i=0 ; i<numcoldef; i++) {
+    for (i=0 ; i<numcoldef; i++)   {
         start[0]=coldef[i].first_index;
         start[1]=0;
-        count[0]=coldef[i].index - coldef[i].first_index;
+        count[0]=coldef[i].index   - coldef[i].first_index;
         count[1]=coldef[i].ncol;
 
-        status = nc_put_vara_float(
-		  ncid, coldef[i].nc_var,
-		  start,
-		  count,
-		  coldef[i].values);
+        status   = nc_put_vara_float(ncid, coldef[i].nc_var,
+                                     start, count, coldef[i].values);
         if (status != NC_NOERR)
              nc_handle_error(status);
-
     }
-
 }
 
 
@@ -434,6 +449,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile, int list_line,
  * Date     : December 1992
  * ........................................................................
  */
+
 void info(boolean usage)
 {
     /* Give info about usage of program */
@@ -451,5 +467,6 @@ void info(boolean usage)
         printf("                    the program can be used as a replacement for Campbells split\n");
         printf(" -s               : be sloppy on errors in input file\n");
         printf(" -h               : displays usage\n");
+	printf("Version: %s", CSI2NCDF_VER);
         }
 }

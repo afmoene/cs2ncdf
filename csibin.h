@@ -34,7 +34,7 @@
 #define PATT_4_DECIMAL6 0x82
 
 #define NO_VALUE -9991
-#define MAX_BYTES 8196
+#define MAX_BYTES 1024
 
 
 /* ........................................................................
