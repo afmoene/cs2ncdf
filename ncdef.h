@@ -30,6 +30,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define MAX_LINELENGTH  1024
 #define MAX_STRINGLENGTH 20000
 
+#define FTYPE_CSIBIN 1
+#define FTYPE_TXTCSV 2
+#define FTYPE_TXTSSV 3
+#define FTYPE_TXTTSV 4
+
+
 /* ........................................................................
  * type declarations
  * ........................................................................
@@ -86,17 +92,16 @@ typedef struct {
 
 /* Get a sting from between quotes */
 char *quoted_string(char *string) {
-char *stringp, *stringp2, *outstring;
-           if ((stringp = strchr(string, '"')) && 
-               (stringp2 = strchr(stringp+1,'"'))) {
-              outstring = (char *) malloc((stringp2-stringp-2)*sizeof(char));
-              *outstring='\0';
-              strncat(outstring, stringp+1, 
-                     (stringp2-stringp)/sizeof(char)-1);
-              return outstring;
-           } else {
-              return NULL;
-           }
+    char *stringp, *stringp2, *outstring;
+    if ((stringp = strchr(string, '"')) && 
+        (stringp2 = strchr(stringp+1,'"'))) {
+        outstring = (char *) malloc((stringp2-stringp-2)*sizeof(char));
+        *outstring='\0';
+        strncat(outstring, stringp+1, (stringp2-stringp)/sizeof(char)-1);
+        return outstring;
+     } else {
+        return NULL;
+     }
 }
 
 char *non_space(char *string, const char *word, const char letter) {
@@ -167,17 +172,20 @@ boolean get_float(char *line, const char *token, const char *name, float *value)
 
 boolean get_string(char *line, const char *token, 
                    const char *name, char *value) {
-   char *stringp;
+   char *stringp, *stringp2 ;
    char mess[MAX_STRINGLENGTH];
 
    if ( (stringp = strstr(line, token)) ) {
        if ( (stringp = non_space(stringp, token, '=')) ) {
-          if (!strcpy(value, quoted_string(stringp))) {
-	      sprintf(mess, "could not convert %s\n", name);
-              error(mess, -1);
-	      return FALSE;
-	  } else
-              return TRUE;
+	  stringp2 = quoted_string(stringp);
+	  if (stringp2) {
+              if (!strcpy(value, stringp2)) {
+	         sprintf(mess, "could not convert %s\n", name);
+                 error(mess, -1);
+	         return FALSE;
+	     } else
+                 return TRUE;
+          }
        }
    }
    return FALSE;
@@ -476,7 +484,6 @@ time_def
     timedef;
 boolean
     found_timedim, time_comp, time_csi_hm, i_am_time;
-
 
 
     /* (1) Initialize */
@@ -889,3 +896,62 @@ boolean
 }
 
 
+/* ........................................................................
+ * Function : txt_decode
+ * Purpose  : To read numbers from a line from a text file
+ *
+ * Interface: txtline          in     string
+ *            txtdata          out    array to hold data 
+ *            inftype          in     type of input file
+ *            ncol             in/out number of columns
+ *
+ * Method   : 
+ * Date     : September 2002
+ * Note     : some ideas have been taken fom the file util.c of
+ *            the EMU package (see http://boto.ocean.washington.edu/emu/toolbox/codefiles/code/util.c)
+ *            I do not know about their licence and whether releasing this
+ *            under GPL causes problems.
+ * ........................................................................
+ */
+void txtdecode(char* s, float *txtdata, 
+                int inftype, int *ncol) {
+   int status,i, col;
+   char dumstring[MAX_STRINGLENGTH], delimiter, *pCh,
+        *pChSpace,
+	substring[MAX_STRINGLENGTH];
+   float dumfloat;
+
+   // Set separator
+   if (inftype == FTYPE_TXTCSV) {
+	   delimiter=',';
+   }
+   if (inftype == FTYPE_TXTSSV) {
+	   delimiter=' ';
+   }
+   if (inftype == FTYPE_TXTTSV) {
+	   delimiter='\t';
+   }
+
+   col = 0;
+   while (strchr(s, delimiter) != NULL) {
+       if (s[0] == delimiter) {
+          i = 0;
+          while (s[i] == delimiter)
+             i++;
+          pChSpace = &s[i];
+          strcpy(s, pChSpace);
+       }
+       if (strchr(s, delimiter) != NULL) {
+          i = 0;
+          while (s[i] != delimiter)
+              i++;
+       } else
+	  i = strlen(s);
+       strncpy(dumstring, s, i);
+       dumstring[i]='\0';
+       txtdata[col] = atof(dumstring);
+       s = s + i ;
+       col++;
+   }
+   *ncol = col;
+}

@@ -1,6 +1,16 @@
 $Id$
 Changelog for csi2ncdf
 
+Version 2.2 : 2002-9-26  (arnold.moene@wur.nl)
+* now can read data also from text files, as long as they're structured as
+  the binary CSI files (the array ID is relevant here)
+* fixed a quirck in do_conv_csi; before it was so that if the
+  read action from the binary file would give zero bytes, the routine
+  would be exited directly, without writing remaining data.
+* added support for general text files (without ArrayID)
+* fixed weakness in reading of format file: no longer crash if
+  string has no closing quote (just ignore it)
+
 Version 2.1.2 : 2001-5-14 (arnold.moene@user.metair.wau.nl)
 * slight changes to error messages in csi2ncdf.c and ncdef.h
 * added part on error messages to documentation

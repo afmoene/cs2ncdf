@@ -5,9 +5,9 @@ JADE=openjade
 LYNX=c:\sgml\lynx\lynx
 
 # Style sheets
-HTMLDSL=c:\sgml\sgmlto~1.2\dsssl\html.dsl
-PRINTDSL=c:\sgml\docbook\print\docbook.dsl
-TXTDSL=c:\sgml\sgmlto~1.2\dsssl\ascii-lynx.dsl
+HTMLDSL=c:\\sgml\\sgmlto~1.2\\dsssl\\html.dsl
+PRINTDSL=c:\\sgml\\docbook\\print\\docbook.dsl
+TXTDSL=c:\\sgml\\sgmlto~1.2\\dsssl\\ascii-lynx.dsl
 
 all:  readme.html readme.rtf readme.txt
 

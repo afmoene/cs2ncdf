@@ -186,8 +186,12 @@ void cmd_arg(char *(*arg[]), int *arg_cnt, int flag_length, char param[])
     /* Place argument in parameter */
     if (!space)
       strcpy(param, (*(arg[0]) + flag_length));
-    else
-      strcpy(param, *(arg[0] + 1));
+    else {
+      if (*arg_cnt > 1) 
+          strcpy(param, *(arg[0] + 1));
+      else 
+          printf("switch not followed by argument\n\n");
+    }
 
     /* In case flag was separated from paramater by space, decrease argument
      * counter and move one argument forward */

@@ -1,5 +1,3 @@
 $Id$
 Todo list for csi2ncdf.
 
-- Add possibility to convert ASCII CSI datalogger files (either comma separated, or space separated) in addition to binary
-- Add possibility to convert general ASCII files

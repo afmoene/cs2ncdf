@@ -34,7 +34,10 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.1.2"
+#define CSI2NCDF_VER "2.2"
+#define FTYPE_CSIBIN 1
+#define FTYPE_TXTCSV 2
+#define FTYPE_TXTSSV 3
 
 /* ........................................................................
  *
@@ -62,6 +65,10 @@
  *                            (see README for details)
  *            -b start condition: start output when condition is true
  *            -e stop condition: stop output when condition is true 
+ *            -t ftype      : input file is text file of type ftape:
+ *                            csv -> comma separated
+ *                            ssv -> space separated
+ *                            tsv -> tab separated
  *            -h            : displays usage
  *
  *
@@ -107,7 +114,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  maincond_def loc_cond[MAXCOND], int n_cond,
                  maincond_def start_cond,
                  maincond_def stop_cond,
-                 boolean sloppy )
+                 boolean sloppy, int inftype, boolean txtfile, boolean fake)
 
 {
     /*
@@ -118,20 +125,22 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
          coldef[MAXCOL];
 
      unsigned   char
-         buffer[MAX_BYTES], data[MAX_BYTES*2];
-     float value, timvalue;
+         buffer[MAX_BYTES], data[MAX_BYTES*2], myswitch;
+     char    txtline[MAX_BYTES];
+     float value, timvalue, txtdata[MAXCOL];
      size_t   count[2], start[2];
      int     array_id,   i,   j,   num_bytes, curr_byte, timcol, rest_byte;
      int     linenum, colnum, status,  numcoldef = 0;
-     int     wanted_data;
+     int     wanted_data, ncol, def_array_id;
      char    *printline = NULL, dumstring[100];
-     boolean have_start, have_stop, start_data, stop_data;
+     boolean have_start, have_stop, start_data, stop_data, end_txtline;
 
 
            
     /* ....................................................................
      */
     /* (1) Read definition of columns from format file */
+
     if (!list_line)
       def_nc_file(ncid, formfile, coldef,   &numcoldef,   (int)   MAXCOL);
 
@@ -149,6 +158,8 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
        stop_data = FALSE;
     else 
        stop_data = FALSE;
+    if (fake)
+       def_array_id = coldef[0].array_id;
     
     /* (3) Loop input file, reading some data at once, and writing to
      *     netcdf file if array of data is full 
@@ -161,129 +172,166 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
            (list_line == -1 && !feof(infile))) {
 
        rest_byte = num_bytes - curr_byte;
-       
-       /* (3.1) Read data; if no more data in file, return  */
-       if ((num_bytes =
-           fread(buffer, sizeof(data[0]), MAX_BYTES, infile))   ==   0)
-           return;
-       /* (3.2) Data read, so process now: walk through data */
-       else   {
-         /* Copy data from buffer to data */
-         for (i = 0; i < rest_byte; i++)
-            data[i] = data[curr_byte+i];
-         for (i = 0; i < num_bytes; i++)
-            data[i+rest_byte] = buffer[i];
-         num_bytes = num_bytes + rest_byte;
-         curr_byte = 0;
-         /* We have to take the risk that the last 2 bytes are the first half
-            of a 4 byte word, bad luck */
-         while (!stop_data && (curr_byte < num_bytes-2))   {
-            /* (3.2.1) Determine type of byte read */
-            switch (bytetype((data+curr_byte)))   {
-              case TWO_BYTE:
-                  value =   conv_two_byte((data+curr_byte));
-                  if ((list_line && linenum   <=   list_line) ||
-                      (list_line == -1)) {
-                      sprintf(dumstring, "%f ", value);
-                      strcat(printline, dumstring);
-                  }
-                  colnum++;
-                  curr_byte = curr_byte + 2;
-                  break;
-              case FOUR_BYTE_1:
-                  if   (bytetype((data+curr_byte+2))   ==   FOUR_BYTE_2) {
-                      value =  conv_four_byte((data+curr_byte), 
-                          (data+curr_byte+2));
-                      colnum++;
-                      curr_byte = curr_byte + 4;
-                  } else  {
-                      if (sloppy)  {
-                          printf("warning unkown byte pair in 4 bytes\n");
-                          printf("line num = %i %i\n", linenum, colnum);
-                          curr_byte++;
-                      } else {
-                          status   = nc_close(ncid);
-                          close(infile);
-                          printf("line num = %i %i\n", linenum, colnum);
-                          error("unexpected byte pair in file", -1);
-                      }
-                  }
-                  if ((list_line && linenum   <=   list_line) ||
-                      (list_line == -1)) {
-                      sprintf(dumstring, "%f ", value);
-                      strcat(printline, dumstring);
-                  }
 
-                  break;
-              case START_OUTPUT:
-                  /* First handle conditions of previous ArrayID */
-                  wanted_data = all_cond(loc_cond, n_cond);
-                  if (array_id > 0)
-                    if (have_start)
-                       start_data = (start_data || all_cond(&start_cond, 1));
-                    else
-                       start_data = TRUE;
-                  if (array_id > 0)
-                     if (have_stop)
-                     stop_data = all_cond(&stop_cond, 1);
-                  else
-                     stop_data = FALSE;
-                     
-                  if (printline) {
-                    if (((have_start && start_data) && wanted_data) ||
-                        (!have_start && wanted_data))
-                       printf("%s\n", printline);
-                    free(printline);
-                    printline = NULL;
-                  }
-                  /* If data were not wanted, skip one line back in
-                   * storage array (only for those arrays where we got
-                     data !! */
-                  if (((have_start && !start_data) ||
-                       !wanted_data ||
-                       (have_stop && stop_data)
-                      ) && !list_line)
-                    for (i=0; i < numcoldef; i++) {
-                       if (coldef[i].got_val) {
-                          (coldef[i].index)--;
-                          (coldef[i].curr_index)--;
+       /* (3.1) Read data  */
+       if (txtfile) {
+	   num_bytes = (int) fgets(txtline, sizeof(txtline), infile);
+           end_txtline = FALSE;
+           txtdecode(txtline, txtdata, inftype, &ncol);
+	   colnum = 0;
+       } else {
+           num_bytes = fread(buffer, sizeof(data[0]), MAX_BYTES, infile);
+       }
+
+
+       /* (3.2) Data read, so process now: walk through data */
+       /* if no more data in file, skip processing  */
+       if (num_bytes)  {
+         if (!txtfile) {
+            /* Copy data from buffer to data */
+            for (i = 0; i < rest_byte; i++)
+               data[i] = data[curr_byte+i];
+            for (i = 0; i < num_bytes; i++)
+               data[i+rest_byte] = buffer[i];
+            num_bytes = num_bytes + rest_byte;
+            curr_byte = 0;
+            /* We have to take the risk that the last 2 bytes are the first half
+               of a 4 byte word, bad luck */
+	 }
+	    
+            while ((!txtfile && (!stop_data && (curr_byte < num_bytes-2))) ||
+	           ( txtfile && (!stop_data && !end_txtline))) {
+               /* (3.2.1) Determine type of byte read */
+	      if (txtfile) {
+                  if (colnum == 0) {
+	             myswitch = START_OUTPUT;
+		  } else 
+	             myswitch = TXT_VALUE;
+	      } else
+                  myswitch = bytetype((data+curr_byte));
+              switch (myswitch)   {
+                 case TXT_VALUE:
+	             value = txtdata[colnum];
+                     if ((list_line && linenum   <=   list_line) ||
+                         (list_line == -1)) {
+                         sprintf(dumstring, "%f ", value);
+                         strcat(printline, dumstring);
+                     }
+		     colnum++;
+		     if (colnum > ncol)
+			     end_txtline = TRUE;
+		     break;
+                 case TWO_BYTE:
+                     value =   conv_two_byte((data+curr_byte));
+                     if ((list_line && linenum   <=   list_line) ||
+                         (list_line == -1)) {
+                         sprintf(dumstring, "%f ", value);
+                         strcat(printline, dumstring);
+                     }
+                     colnum++;
+                     curr_byte = curr_byte + 2;
+                     break;
+                 case FOUR_BYTE_1:
+                     if   (bytetype((data+curr_byte+2))   ==   FOUR_BYTE_2) {
+                         value =  conv_four_byte((data+curr_byte), 
+                             (data+curr_byte+2));
+                         colnum++;
+                         curr_byte = curr_byte + 4;
+                     } else  {
+                         if (sloppy)  {
+                             printf("warning unkown byte pair in 4 bytes\n");
+                             printf("line num = %i %i\n", linenum, colnum);
+                             curr_byte++;
+                         } else {
+                             status   = nc_close(ncid);
+                             close(infile);
+                             printf("line num = %i %i\n", linenum, colnum);
+                             error("unexpected byte pair in file", -1);
+                         }
+                     }
+                     if ((list_line && linenum   <=   list_line) ||
+                         (list_line == -1)) {
+                         sprintf(dumstring, "%f ", value);
+                         strcat(printline, dumstring);
+                     }
+
+                     break;
+                 case START_OUTPUT:
+                     /* First handle conditions of previous ArrayID */
+                     wanted_data = all_cond(loc_cond, n_cond);
+                     if (array_id > 0)
+                       if (have_start)
+                          start_data = (start_data || all_cond(&start_cond, 1));
+                       else
+                          start_data = TRUE;
+                     if (array_id > 0)
+                        if (have_stop)
+                        stop_data = all_cond(&stop_cond, 1);
+                     else
+                        stop_data = FALSE;
+                        
+                     if (printline) {
+                       if (((have_start && start_data) && wanted_data) ||
+                           (!have_start && wanted_data))
+                          printf("%s\n", printline);
+                       free(printline);
+                       printline = NULL;
+                     }
+                     /* If data were not wanted, skip one line back in
+                      * storage array (only for those arrays where we got
+                        data !! */
+                     if (((have_start && !start_data) ||
+                          !wanted_data ||
+                          (have_stop && stop_data)
+                         ) && !list_line)
+                       for (i=0; i < numcoldef; i++) {
+                          if (coldef[i].got_val) {
+                             (coldef[i].index)--;
+                             (coldef[i].curr_index)--;
+                          }
                        }
-                    }
-                  /* Reset info whether we got a value */
-                  for (i=0; i < numcoldef; i++)
-                     coldef[i].got_val = FALSE;
+                     /* Reset info whether we got a value */
+                     for (i=0; i < numcoldef; i++)
+                        coldef[i].got_val = FALSE;
                
-                  /* Now start handling of new data */
-                  array_id   =   conv_arrayid((data+curr_byte));
-                  /* Value may be needed for condition checks */
-                  value = (float) array_id;
-                  reset_cond(loc_cond, n_cond, array_id);
+                     /* Now start handling of new data */
+		     if (fake)
+			 array_id = def_array_id;
+		     else 
+		        if (txtfile)
+		           array_id = (int) txtdata[0];
+		        else 
+                           array_id   =   conv_arrayid((data+curr_byte));
+                     /* Value may be needed for condition checks */
+                     value = (float) array_id;
+                     reset_cond(loc_cond, n_cond, array_id);
                   
-                  linenum++;
-                  colnum=1;
-                  if ((list_line   &&   linenum <= list_line) ||
-                        (list_line == -1)) {
-                      printline = get_clearstring(10000);
-                      sprintf(dumstring, "%i ", array_id);
-                      strcat(printline, dumstring);
-                  }
-                  
-                  curr_byte =   curr_byte +   2;
-                  break;
-              case DUMMY_WORD:
-                  printf("found dummy word on line %i\n", linenum);
-                  curr_byte =   curr_byte +   2;
-                  break;
-              default:
-                  if (sloppy) {
-                     printf("warning unkown byte type\n");
-                     curr_byte++;
-                  } else   {
-                     status = nc_close(ncid);
-                     close(infile);
-                     error("unknown byte type",-1);
-                  }
-                  break;
+                     linenum++;
+                     colnum=1;
+                     if ((list_line   &&   linenum <= list_line) ||
+                           (list_line == -1)) {
+                         printline = get_clearstring(10000);
+                         sprintf(dumstring, "%i ", array_id);
+                         strcat(printline, dumstring);
+                     }
+		     if (!txtfile)
+                         curr_byte =   curr_byte +   2;
+                     break;
+
+                 case DUMMY_WORD:
+                     printf("found dummy word on line %i\n", linenum);
+                     curr_byte =   curr_byte +   2;
+                     break;
+                 default:
+                     if (sloppy) {
+                        printf("warning unkown byte type\n");
+                        curr_byte++;
+                     } else   {
+                        status = nc_close(ncid);
+                        close(infile);
+                        error("unknown byte type",-1);
+                     }
+                     break;
             } /* switch */
 
             /* (3.2.2) Check condition */
@@ -478,12 +526,15 @@ int main(int argc, char   *argv[])
        *formfile;                         /* format file */
     boolean
         sloppy   = FALSE,
-        only_usage =   TRUE;                /* switch for info */
+        only_usage =   TRUE,                /* switch for info */
+	txtfile = FALSE,                  /* is input file a text file */
+	fake = FALSE;                     /* fake an array ID */
     int
         status,
         list_line   = 0,
         ncid = 0,
-        n_cond = 0;
+        n_cond = 0,
+	inftype = FTYPE_CSIBIN;
     maincond_def
         loc_cond[MAXCOND];
     maincond_def
@@ -546,6 +597,11 @@ int main(int argc, char   *argv[])
                case 's'   :
                  sloppy   = TRUE;
                  break;
+
+               /* Fake an arrayID */
+               case 'a'   :
+                 fake   = TRUE;
+                 break;
                  
                /* Condition */
                case 'c'   :
@@ -575,6 +631,22 @@ int main(int argc, char   *argv[])
                  parse_main_cond(&stop_cond);
                  break;
 
+               /* Text file type */
+               case 't'   :
+                 cmd_arg(&argv, &argc,   2,   dumstring);
+		 if (!strcmp(dumstring, "csv")) {
+		     inftype = FTYPE_TXTCSV;
+		     txtfile = TRUE;
+		 } else if (!strcmp(dumstring, "ssv")) {
+		     inftype = FTYPE_TXTSSV;
+		     txtfile = TRUE;
+		 } else if (!strcmp(dumstring, "tsv")) {
+		     inftype = FTYPE_TXTTSV;
+		     txtfile = TRUE;
+		 } else
+                     error("unknown text file type\n", -1);
+		 break;
+              
                /* Invalid flag */
                default :
                   cmd_arg(&argv,   &argc, 1, arg);
@@ -613,7 +685,11 @@ int main(int argc, char   *argv[])
     }
 
     /* (4.2) Input file */
-    if ((infile =   fopen(infname,   "rb")) == NULL) {
+    if (txtfile) 
+       infile = fopen(infname,   "rt");
+    else
+       infile = fopen(infname,   "rb");
+    if (infile  == NULL) {
        sprintf(mess,   "cannot open file %s for reading.\n", infname);
        error(mess, (int) FILE_NOT_FOUND);
     }
@@ -626,7 +702,8 @@ int main(int argc, char   *argv[])
 
     /* (5) Do conversion */
     do_conv_csi(infile,   ncid,   formfile, list_line,
-                loc_cond, n_cond, start_cond, stop_cond, sloppy);
+                loc_cond, n_cond, start_cond, stop_cond, sloppy,inftype, 
+		txtfile, fake);
 
     /* (6) Close files */
     fclose(infile);
@@ -658,8 +735,8 @@ void info(boolean usage)
 {
     /* Give info about usage of program */
         printf("Usage: csi2ncdf -i inputfile [-o outputfile \n");
-        printf("       -f formatfile] [-l num_lines] [-s] \n");
-	printf("       [-c condition] -h  \n\n");
+        printf("       -f formatfile]  [-t txtype] [-l num_lines] [-s] \n");
+	printf("       [-c condition] [-a] -h  \n\n");
 
     /* If not only usage info requested, give more info */
         if (!usage)
@@ -673,9 +750,16 @@ void info(boolean usage)
         printf(" -s               : be sloppy on errors in input file\n");
         printf(" -c condition     : only output data subject to condition\n");
         printf("                    (see README for details)\n");
+        printf(" -t txtftype      : input file is a text file, with type: \n");
+        printf("                    csv : comma separated\n");
+        printf("                    ssv : space separated\n");
+        printf("                    tsv : tab separated\n");
+        printf(" -a               : don't use arrayID from file (e.g. because there is no \n");
+        printf("                    but assume that all lines have the same ID, which is taken \n");
+        printf("                    from the first definition in the format file\n");
         printf(" -h               : displays usage\n");
 	printf("Version: %s\n", CSI2NCDF_VER);
-        printf("Copyright (C) 2000 Meteorology and Air Quality Group (Wageningen University), Arnold Moene\n");
+        printf("Copyright (C) 2000-2002 Meteorology and Air Quality Group (Wageningen University), Arnold Moene\n");
         printf("This program is free software; you can redistribute it and/or\n");
         printf("modify it under the terms of the GNU General Public License\n");
         printf("as published by the Free Software Foundation; either version 2\n");

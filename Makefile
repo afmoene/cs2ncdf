@@ -2,7 +2,7 @@
 # Define C-compiler and loader
 CC=gcc
 LD=gcc
-OPTIMIZATION = -O3
+OPTIMIZATION = -O3  -g
 
 # Other libs
 LIBS= -lm

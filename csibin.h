@@ -24,6 +24,7 @@
 #define FOUR_BYTE_1    3
 #define FOUR_BYTE_2    4
 #define DUMMY_WORD     5
+#define TXT_VALUE      6
 
 #define MASK_START_OUTPUT 0xFC
 #define MASK_1_OF_FOUR 0x3C
