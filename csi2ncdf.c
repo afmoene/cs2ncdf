@@ -34,10 +34,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.2.6"
-#define FTYPE_CSIBIN 1
-#define FTYPE_TXTCSV 2
-#define FTYPE_TXTSSV 3
+#define CSI2NCDF_VER "2.2.7"
 
 /* ........................................................................
  *
@@ -69,6 +66,11 @@
  *                            csv -> comma separated
  *                            ssv -> space separated
  *                            tsv -> tab separated
+ *            -n new_type   : input file is of new type:
+ *                            tob1 -> table oriented binary 1 (minimal support, only
+ *                            writing to stdout)
+ *            -k colnum     : column to write to stdout (only works for tob1); more than
+ *                            one -k option is allowed
  *            -h            : displays usage
  *
  *
@@ -96,6 +98,112 @@ void
 char
     program[100];                     /* name of program from command line */
 
+/* typeline_decode */
+void typeline_decode(char* s, int coltype[MAXCOL],  int *ncol) {
+
+   int status,i, col;
+   char dumstring[MAX_STRINGLENGTH], delimiter, *pCh,
+        *pChSpace,
+	dumstring2[MAX_STRINGLENGTH];
+   float dumfloat;
+
+   // Set separator
+   delimiter=',';
+
+   col = 0;
+   while ((col < MAXCOL) && (strchr(s, delimiter) != NULL)) {
+       if (s[0] == delimiter) {
+          i = 0;
+          while (s[i] == delimiter)
+             i++;
+          pChSpace = &s[i];
+          strcpy(s, pChSpace);
+       }
+       if (strchr(s, delimiter) != NULL) {
+          i = 0;
+          while (s[i] != delimiter)
+              i++;
+       } else
+	  i = strlen(s);
+       strncpy(dumstring, s, i);
+       if (dumstring[i-1] == '"') {
+          strncpy(dumstring2, &dumstring[1], i-2);
+          dumstring2[i-2]='\0';
+       } else {
+          strncpy(dumstring2, &dumstring[1], i-4);
+          dumstring2[i-4]='\0';
+       }
+       if (! strcmp(dumstring2, "ULONG"))
+	   coltype[col] = TOB_ULONG;
+       else if (! strcmp(dumstring2, "IEEE4"))
+	   coltype[col] = TOB_IEEE4;
+       else if (! strcmp(dumstring2, "FP2"))
+	   coltype[col] = TOB_FP2;
+       else
+	   printf("Error: unknown data type in TOB file: %s\n", dumstring2);
+       s = s + i ;
+       col++;
+   }
+   *ncol = col;
+}
+
+/* ........................................................................
+ * Function : do_conv_tob1
+ * Purpose  : Rudimentary function to convert one data column from TOB1 
+ *            file to text on standard output
+ *
+ * Interface: infile           in   input files
+ *            ncid             out  netcdf id of output file
+ *            formfile         in   text file describing format
+ *            list_line        in   number of lines of input file to
+ *                                  list
+ *            print_col        in   switch which columns should be printed
+ * Date     : December 16, 2003
+ */
+void do_conv_tob1(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL])
+{
+	char buffer[1024], two_char[2];
+        char dumstring[MAX_STRINGLENGTH], delimiter, *pCh,
+             *pChSpace, substring[MAX_STRINGLENGTH], s[MAX_STRINGLENGTH];
+	int  i, ncol, coltype[MAXCOL];
+	unsigned long dum_long;
+	float dum_float;
+
+
+	/* Skip first four lines */
+        for (i = 0; i<4; i++) {
+           fgets(buffer, sizeof(buffer), infile);
+        }
+        fgets(buffer, sizeof(buffer), infile);
+
+	/* Determine number of columns and type of numbers */
+        typeline_decode(buffer, coltype,  &ncol);
+        while (!feof(infile)) {
+           for (i=0; i< ncol; i++) {
+              switch (coltype[i])  {
+                 case TOB_ULONG:
+                    fread(&dum_long, sizeof(dum_long), 1, infile);
+		    if (print_col[i]) printf("%u ", dum_long);
+		    break;
+                 case TOB_IEEE4:
+                    fread(&dum_float, sizeof(dum_float), 1, infile);
+		    if (print_col[i]) printf("%f ", dum_float);
+		    break;
+                 case TOB_FP2:
+                    fread(two_char, sizeof(two_char[0]), 2, infile);
+                    dum_float = conv_two_byte(two_char);
+		    if (print_col[i]) printf("%f ", dum_float);
+		    break;
+		 default:
+                    break;
+              }
+           }
+	   printf(" \n");
+        }
+
+		
+}
+
 /* ........................................................................
  * Function : do_conv_csi
  * Purpose  : To do conversion of Campbell binary file to netCDF file.
@@ -114,7 +222,8 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  maincond_def loc_cond[MAXCOND], int n_cond,
                  maincond_def start_cond,
                  maincond_def stop_cond,
-                 boolean sloppy, int inftype, boolean txtfile, boolean fake)
+                 boolean sloppy, int inftype, boolean txtfile, boolean fake,
+		 boolean print_col[MAXCOL])
 
 {
     /*
@@ -225,8 +334,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 	             value = txtdata[colnum];
                      if ((list_line && linenum   <=   list_line) ||
                          (list_line == -1)) {
-                         sprintf(dumstring, "%f ", value);
-                         strcat(printline, dumstring);
+                         if (print_col[colnum-1]) {
+                            sprintf(dumstring, "%f ", value);
+                            strcat(printline, dumstring);
+			 }
                      }
 		     if (colnum > 0) {
 			   colnum++;
@@ -239,8 +350,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      value =   conv_two_byte((data+curr_byte));
                      if ((list_line && linenum   <=   list_line) ||
                          (list_line == -1)) {
-                         sprintf(dumstring, "%f ", value);
-                         strcat(printline, dumstring);
+                         if (print_col[colnum-1]) {
+                            sprintf(dumstring, "%f ", value);
+                            strcat(printline, dumstring);
+			 }
                      }
 		     if (colnum > 0) {
 			    colnum++;
@@ -271,8 +384,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      }
                      if ((list_line && linenum   <=   list_line) ||
                          (list_line == -1)) {
-                         sprintf(dumstring, "%f ", value);
-                         strcat(printline, dumstring);
+                         if (print_col[colnum-1]) {
+                            sprintf(dumstring, "%f ", value);
+                            strcat(printline, dumstring);
+                         }
                      }
                      break;
 
@@ -411,8 +526,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      if ((list_line   &&   linenum <= list_line) ||
                            (list_line == -1)) {
                          printline = get_clearstring(10000);
-                         sprintf(dumstring, "%i ", array_id);
-                         strcat(printline, dumstring);
+			 if (print_col[colnum-1]) {
+                            sprintf(dumstring, "%i ", array_id);
+                            strcat(printline, dumstring);
+                         }
                      }
 		     if (!txtfile)
                          curr_byte =   curr_byte +   2;
@@ -617,11 +734,15 @@ int main(int argc, char   *argv[])
        *infile,                         /* input file */
        *formfile;                         /* format file */
     boolean
+        print_col[MAXCOL],                /* write column to stdout ? */
+        all_false,
         sloppy   = FALSE,
         only_usage =   TRUE,                /* switch for info */
 	txtfile = FALSE,                  /* is input file a text file */
 	fake = FALSE;                     /* fake an array ID */
     int
+        i,
+        colnum,
         status,
         list_line   = 0,
         ncid = 0,
@@ -641,6 +762,8 @@ int main(int argc, char   *argv[])
     /* (0) Initialize */
     start_cond.cond_text = NULL;
     stop_cond.cond_text = NULL;
+    for (i=0; i< MAXCOL; i++)
+	    print_col[i] = FALSE;
     /* (1) Determine disk file name of program */
     strcpy(program,(argv[0]));
 
@@ -655,7 +778,7 @@ int main(int argc, char   *argv[])
 
         /* Check for leading '-' in flag */
         if ((*argv)[0] == '-') {
-            c = (*(argv[0]   + 1));
+            c = (*(argv[0] + 1));
             switch (c) {
                /* Input file */
                case 'o'   :
@@ -737,7 +860,27 @@ int main(int argc, char   *argv[])
 		 } else
                      error("unknown text file type\n", -1);
 		 break;
+
+               /* New table oriented file */
+               case 'n' :
+                 cmd_arg(&argv, &argc,   2,   dumstring);
+		 if (!strcmp(dumstring, "tob1")) {
+		     inftype = FTYPE_NEWTOB1;
+		     txtfile = FALSE;
+		 } else
+                     error("unknown new file type\n", -1);
+		 break;
               
+               /* Stdout column number */
+               case 'k':
+                 cmd_arg(&argv, &argc,   2,   dumstring);
+		 colnum = atoi(dumstring)-1;
+                 if ((colnum >= 0) && (colnum < MAXCOL))
+                     print_col[atoi(dumstring)-1] = TRUE;
+                 else
+                     error("invalid column number (larger than MAXCOL)\n", CMD_LINE_ERROR);
+		 break;
+
                /* Invalid flag */
                default :
                   cmd_arg(&argv,   &argc, 1, arg);
@@ -751,8 +894,20 @@ int main(int argc, char   *argv[])
             info(TRUE);
         }
     } 
+    /* Check if all print_col is FALSE, then set all print_col to TRUE */
+    all_false = TRUE;
+    for (i=0; i< MAXCOL; i++)
+        if (print_col[i])
+		all_false = FALSE;
+    if (all_false)
+        for (i=0; i< MAXCOL; i++)
+           print_col[i] = TRUE;
+
     /* (3) Trap error situations */
     only_usage   = TRUE;
+    if ((inftype == FTYPE_NEWTOB1) && (!list_line)) {
+        error("file type is TOB1 and no listing to stdout requested\n", CMD_LINE_ERROR);
+    }
     if (!list_line && !strlen(outfname)) {
         info(only_usage);
         error("no output file specified\n", CMD_LINE_ERROR);
@@ -761,7 +916,7 @@ int main(int argc, char   *argv[])
         info(only_usage);
         error("no input file specified\n", CMD_LINE_ERROR);
     }
-    if (!list_line && !strlen(formatfname)) {
+    if ((inftype != FTYPE_NEWTOB1) && !list_line && !strlen(formatfname)) {
         info(only_usage);
         error("no format file specified\n", CMD_LINE_ERROR);
     }
@@ -792,9 +947,12 @@ int main(int argc, char   *argv[])
     }
 
     /* (5) Do conversion */
-    do_conv_csi(infile,   ncid,   formfile, list_line,
+    if (inftype == FTYPE_NEWTOB1)
+       do_conv_tob1(infile, ncid, formfile, list_line, print_col);
+    else
+       do_conv_csi(infile,   ncid,   formfile, list_line,
                 loc_cond, n_cond, start_cond, stop_cond, sloppy,inftype, 
-		txtfile, fake);
+		txtfile, fake, print_col);
 
     /* (6) Close files */
     fclose(infile);
@@ -826,8 +984,8 @@ void info(boolean usage)
 {
     /* Give info about usage of program */
         printf("Usage: csi2ncdf -i inputfile [-o outputfile \n");
-        printf("       -f formatfile]  [-t txtype] [-l num_lines] [-s] \n");
-	printf("       [-c condition] [-a] -h  \n\n");
+        printf("       -f formatfile]  [-t txtype] [-n] [-l num_lines] [-s] \n");
+	printf("       [-c condition] [-a] [-k colnum] -h  \n\n");
 
     /* If not only usage info requested, give more info */
         if (!usage)
@@ -845,12 +1003,17 @@ void info(boolean usage)
         printf("                    csv : comma separated\n");
         printf("                    ssv : space separated\n");
         printf("                    tsv : tab separated\n");
+	printf(" -n new_type      : input file is of type new binary type:\n");
+        printf("                    tob1: table oriented binary 1 (minimal support\n");
+        printf("                          only writing to stdout\n");
+        printf(" -k colnum        : column to write to stdout (only works for tob1); more than\n");
+        printf("                    one -k option is allowed\n");
         printf(" -a               : don't use arrayID from file (e.g. because there is no \n");
         printf("                    but assume that all lines have the same ID, which is taken \n");
         printf("                    from the first definition in the format file\n");
         printf(" -h               : displays usage\n");
 	printf("Version: %s\n", CSI2NCDF_VER);
-        printf("Copyright (C) 2000-2002 Meteorology and Air Quality Group (Wageningen University), Arnold Moene\n");
+        printf("Copyright (C) 2000-2003 Meteorology and Air Quality Group (Wageningen University), Arnold Moene\n");
         printf("This program is free software; you can redistribute it and/or\n");
         printf("modify it under the terms of the GNU General Public License\n");
         printf("as published by the Free Software Foundation; either version 2\n");

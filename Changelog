@@ -1,5 +1,9 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.7: 2003-12-16 (arnold.moene@wur.nl)
+* added minimal support for TOB1 files (only writing to stdout
+* when writing to stdout one can choose which columns should be written
+ (tested for TOB1 but should also work with 'old' CSI-files)
 Version 2.2.6: 2003-09-25 (arnold.moene@wur.nl)
 * changed message when dummy word is found: one mention + line that states the
   number of repetitions.

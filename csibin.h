@@ -25,6 +25,9 @@
 #define FOUR_BYTE_2    4
 #define DUMMY_WORD     5
 #define TXT_VALUE      6
+#define TOB_FP2        7
+#define TOB_ULONG      8
+#define TOB_IEEE4      9
 
 #define MASK_START_OUTPUT 0xFC
 #define MASK_1_OF_FOUR 0x3C
