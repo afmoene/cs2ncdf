@@ -1,6 +1,8 @@
 $Id$
 Changelog for csi2ncdf
-
+Version 2.2.5: 2002-11-18 (arnold.moene@wur.nl)
+* improved (= debugged) string handling in ncdef.h. Errors therein
+  were the most probable cause of crashes on Windows XP (I hope)
 Version 2.2.4: 2002-10-29 (arnold.moene@wur.nl
 * conversion of text file to NetCDF did not produce data in file (just 
   header): fixed.

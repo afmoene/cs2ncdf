@@ -95,9 +95,14 @@ char *quoted_string(char *string) {
     char *stringp, *stringp2, *outstring;
     if ((stringp = strchr(string, '"')) && 
         (stringp2 = strchr(stringp+1,'"'))) {
-        outstring = (char *) malloc((stringp2-stringp-2)*sizeof(char));
+            
+        /* Make sufficient space (including trailing NULL */
+        outstring = (char *) malloc((stringp2-stringp)*sizeof(char));
         *outstring='\0';
+        
+        /* Copy, and add trailing NULL */
         strncat(outstring, stringp+1, (stringp2-stringp)/sizeof(char)-1);
+        strncat(outstring, outstring, '\0');    
         return outstring;
      } else {
         return NULL;
@@ -274,20 +279,21 @@ boolean
     while (otherline) {
        if (!fgets(dumline, sizeof(dumline), formfile)) return 0;
        if (!(slashp = strrchr(dumline,'\\'))) {
+          printf("line = %s\n", dumline);
           otherline = FALSE;
           linecopy = get_clearstring(strlen(line)+strlen(dumline));
           strcpy(linecopy, line);
-	  /* Do not free
+          /* Do not free ? */ 
   	  free(line);
-	  */
+	  
           strcat(linecopy, dumline);
        }
        else {
           linecopy = get_clearstring(strlen(line)+strlen(dumline));
           strcpy(linecopy, line);
-	  /* Do not free 
+	  /* Do not free ? */
 	  free(line);
-	  */
+	  
           strncat(linecopy, dumline, (slashp-dumline)/sizeof(char));
        }
        line = get_clearstring(strlen(linecopy));
@@ -299,8 +305,8 @@ boolean
     if (strstr(line, "//")) {
        pos = (int) (line-strstr(line, "//"));
        if (!pos) {
-       /* line should be freed, but get SIGABORT so, just leave it */
-       /* free(line);*/
+       /* line should be freed, but get SIGABORT so, just leave it  ?*/
+          free(line);
           return 0;
        }
     } else
@@ -308,10 +314,10 @@ boolean
     linecopy[0]='\0';
     strncpy(linecopy, line, (size_t) pos+1);
 
-    /* line should be freed, but get SIGABORT so, just leave it */
-    /*
+    /* line should be freed, but get SIGABORT so, just leave it  ? */
+    
     free(line);
-    */
+    
     if (!strlen(linecopy)) return 0;
 
     /* (3) Get info from line */
@@ -401,22 +407,19 @@ boolean
     /* (4)  Global attributes */
     /* (4.1)  Title attribute */
     if (get_string(linecopy, "title", "title", dumstring)) {
-           (*globaldef).title =  
-                   (char *) malloc(strlen(dumstring));
+           (*globaldef).title = get_clearstring(strlen(dumstring));
            strcpy((*globaldef).title, dumstring);
     }
 
     /* (4.2)  History attribute */
     if (get_string(linecopy, "history", "history", dumstring)) {
-           (*globaldef).history =  
-                   (char *) malloc(strlen(dumstring));
+           (*globaldef).history = get_clearstring(strlen(dumstring));
            strcpy((*globaldef).history, dumstring);
     }
 
     /* (4.3)  Remark attribute */
     if (get_string(linecopy, "remark", "remark", dumstring)) {
-           (*globaldef).remark =  
-                   (char *) malloc(strlen(dumstring));
+           (*globaldef).remark = get_clearstring(strlen(dumstring));
            strcpy((*globaldef).remark, dumstring);
     }
 
@@ -535,8 +538,7 @@ boolean
                * dimension ID */
               timedef.array_id = arrayid;
               if (strlen(timename)) {
-                 timedef.name =
-                   (char *)malloc(strlen(timename)*sizeof(char));
+                 timedef.name = get_clearstring(strlen(timename));
                  strcpy((timedef.name), timename);
               } else
                  timedef.name = NULL;
@@ -557,16 +559,14 @@ boolean
 	       * a variable with name timedef.name, if we are told
 	       * how to fill that variable */
               if (strlen(unit)) {
-                timedef.unit =
-                  (char *)malloc(strlen(unit)*sizeof(char));
+                timedef.unit = get_clearstring(strlen(unit));
                 strcpy((timedef.unit), unit);
               } else
                 timedef.unit = NULL;
 
 	      /* Long name idem*/
               if (strlen(long_name)) {
-       	         timedef.long_name =
-     		     (char *)malloc(strlen(long_name)*sizeof(char));
+       	         timedef.long_name = get_clearstring(strlen(long_name));
      	         strcpy(timedef.long_name, long_name);
               } else
                 timedef.long_name = NULL;
@@ -580,15 +580,13 @@ boolean
 	      (*(coldef+*numcoldef)).col_num = column;
 	      /* Define name */
               if (strlen(name)) {
-  	         (*(coldef+*numcoldef)).name =
-                    (char *)malloc(strlen(name)*sizeof(char));
+  	         (*(coldef+*numcoldef)).name = get_clearstring(strlen(name));
 	         strcpy((*(coldef+*numcoldef)).name, name);
               } else
                  (*(coldef+*numcoldef)).name = NULL;
 	      /* Define units */
               if (strlen(unit)) {
-	         (*(coldef+*numcoldef)).unit =
-                    (char *)malloc(strlen(unit)*sizeof(char));
+	         (*(coldef+*numcoldef)).unit = get_clearstring(strlen(unit));
 	         strcpy((*(coldef+*numcoldef)).unit, unit);
               } else
                  (*(coldef+*numcoldef)).unit = NULL;
@@ -643,8 +641,7 @@ boolean
 
 	      /* Long name */
               if (strlen(long_name)) {
-	         (*(coldef+*numcoldef)).long_name =
-		     (char *)malloc(strlen(long_name)*sizeof(char));
+	         (*(coldef+*numcoldef)).long_name = get_clearstring(strlen(long_name));
 	         strcpy((*(coldef+*numcoldef)).long_name, long_name);
               } else
                  (*(coldef+*numcoldef)).long_name = NULL;
@@ -712,22 +709,19 @@ boolean
     if (num_time_comp) {
       /* Define name */
       if (strlen(name)) {
-         (*(coldef+*numcoldef)).name =
-	   (char *)malloc(strlen(timedef.name)*sizeof(char));
+         (*(coldef+*numcoldef)).name = get_clearstring(strlen(timedef.name));
          strcpy((*(coldef+*numcoldef)).name, timedef.name);
       } else
         (*(coldef+*numcoldef)).name = NULL;
       /* Define units */
       if (strlen(unit)) {
-         (*(coldef+*numcoldef)).unit =
-  	    (char *)malloc(strlen(timedef.unit)*sizeof(char));
+         (*(coldef+*numcoldef)).unit = get_clearstring(strlen(timedef.unit));
          strcpy((*(coldef+*numcoldef)).unit, timedef.unit);
       } else
          (*(coldef+*numcoldef)).unit = NULL;
       /* Define long_name */
       if (strlen(long_name)) {
-         (*(coldef+*numcoldef)).long_name =
-	    (char *)malloc(strlen(timedef.long_name)*sizeof(char));
+         (*(coldef+*numcoldef)).long_name = get_clearstring(strlen(timedef.long_name));
          strcpy((*(coldef+*numcoldef)).long_name, timedef.long_name);
       } else
          (*(coldef+*numcoldef)).long_name = NULL;

@@ -34,7 +34,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.2.4"
+#define CSI2NCDF_VER "2.2.5"
 #define FTYPE_CSIBIN 1
 #define FTYPE_TXTCSV 2
 #define FTYPE_TXTSSV 3
@@ -121,8 +121,6 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      * variable declarations
      *
      */
-     column_def
-         coldef[MAXCOL];
 
      unsigned   char
          buffer[MAX_BYTES], data[MAX_BYTES*2], myswitch;
@@ -130,17 +128,21 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      float value, timvalue, txtdata[MAXCOL];
      size_t   count[2], start[2];
      int     array_id,   i,   j,   num_bytes, curr_byte, timcol, rest_byte;
-     int     linenum, colnum, status,  numcoldef = 0;
+     int     linenum, colnum, status,  numcoldef;
      int     wanted_data, ncol, def_array_id, l_index, l_curr_index;
-     char    *printline = NULL, dumstring[100];
+     char    *printline  , dumstring[100];
      boolean have_start, have_stop, start_data, stop_data, end_txtline,
              valid_sample;
+     column_def
+         coldef[MAXCOL];
 
 
            
     /* ....................................................................
      */
     /* (1) Read definition of columns from format file */
+    numcoldef = 0;
+    printline = NULL;
     if    (!list_line)
       def_nc_file(ncid, formfile, coldef,   &numcoldef,   (int)   MAXCOL);
 
@@ -595,7 +597,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
  * ........................................................................
  */
 int main(int argc, char   *argv[])
-{
+{ 
     /*
      * variable declarations
      */
@@ -633,7 +635,6 @@ int main(int argc, char   *argv[])
     /* (0) Initialize */
     start_cond.cond_text = NULL;
     stop_cond.cond_text = NULL;
-    
     /* (1) Determine disk file name of program */
     strcpy(program,(argv[0]));
 
@@ -778,6 +779,7 @@ int main(int argc, char   *argv[])
     }
 
     /* (4.3) Format file */
+    formfile = NULL;
     if (!list_line && (formfile = fopen(formatfname, "rt"))   ==   NULL)   {
        sprintf(mess,   "cannot open file %s for reading.\n", formatfname);
        error(mess, (int) FILE_NOT_FOUND);
