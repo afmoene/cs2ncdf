@@ -1,6 +1,16 @@
 $Id$
 Changelog for csi2ncdf
 
+Version 2.2.2: 2002-10-4 (arnold.moene@wur.nl)
+* added code ensure that data of different columns remain in sync
+  (relevant when data file is corrupt -> in caseyou need the -s sloppy flag). 
+  Although it should go correctly now,
+  there is a check that stops the program when the data are not in sync 
+  which implies there is a bug).
+* the missing_value switch in the format file now results in an attribute
+  named _FillValue that contains this missing value. This is the standard
+  naming used in NetCDF. Besides, the attribute with this name is
+  actually used by the NetCDF library.
 Version 2.2.1: 2002-9-26 (arnold.moene@wur.nl)
 * fixed bug: in some cases where sloppy switch was needed, value
   of a variable from the last correct column was copied to the 

@@ -662,7 +662,7 @@ positive values between 14 and 15 o'clock).
 
 <sect1 id=errormsgs> <title>Error messages</title>
 <para>
-This section describes briefly the error meassages that can be
+This section describes briefly the error and warning meassages that can be
 given by the program. The error messages of the NetCDF library
 will not be dealt with. Errors thrown by the NetCDF library
 can be recognized by the following format
@@ -723,6 +723,14 @@ column to which the condition applies (e.g. c3 referse to column 3).
 A condition on the command line should contain a comparison operator
 </para>
 </sect3>
+
+<sect3><title>unknown text file type</title>
+<para>
+The type of text file (notably the column separator) is unkown
+(switch -t).
+</para>
+</sect3>
+
 </para>
 </sect2>
 
@@ -834,15 +842,44 @@ the <option>-s</option> (sloppy) to force <command>csi2ncdf</command>
 to go on beyond the corrupt point.
 </para>
 </sect3>
+
 <sect3><title>unknown byte</title>
+<para>
 In CSI binary files, bytes come in pairs, and numbers are represented
 by either 2 or 4 bytes. Each byte in a number has a certain bit pattern from
 which it can be identified. This error message is given when a byte could not
 be identified.
 </para>
+</sect3>
+
+<sect3><title>filling missing value with fake</title>
+<para>
+When a CSI binary file is corrupt at some point, the data are ignored until a
+new array ID (i.e. start of a new line) is found. To ensure synchronisity between
+the various variables, the missing values are filled with the fill values
+that are defined in the NetCDF library, or with the user-supplied
+missing value indicator (missing_value  switch in format file, results
+in _FillValue attribute in NetCDF file).
+</para>
+</sect3>
+
+<sect3><title>did not have data for following variable</title>
+<para>
+If a variables has been designed to follow a given array ID, but now data
+are -yet- available for that following variable, the variables is filled
+with the NetCDF defined fill value, or with the user supplied 
+missing value indicator (missing_value  switch in format file, results
+in _FillValue attribute in NetCDF file).
+</para>
+</sect3>
+
+<sect3><title>data of various columns are not in sync</title>
+If this message appears, there is a bug in the software. Please report.
+This implies that at some lines data have been missed and not
+fille with dummy values.
+</sect3>
 </sect2>
 
-</para>
 </sect1>
 
 <sect1 id="gpl"><title>License</title>

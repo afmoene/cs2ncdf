@@ -843,10 +843,11 @@ boolean
             nc_handle_error(status);
       }
 
-      /* (3.8) Missing_value attribute */
+      /* (3.8) Missing_value attribute: changed name to _FillValue, since that
+       * is standard and used by netcdf when writing (AM 04-10-2002) */
       if ((*(coldef+i)).missing_value != NO_VALUE) {
-         status = nc_put_att_float(ncid, (*(coldef+i)).nc_var, 
-                                   "missing_value", NC_FLOAT, 1,
+           status = nc_put_att_float(ncid, (*(coldef+i)).nc_var, 
+                                   "_FillValue", (*(coldef+i)).nc_type, 1,
                                    &((*(coldef+i)).missing_value));
          if (status != NC_NOERR) 
             nc_handle_error(status);

@@ -34,7 +34,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.2"
+#define CSI2NCDF_VER "2.2.2.pre"
 #define FTYPE_CSIBIN 1
 #define FTYPE_TXTCSV 2
 #define FTYPE_TXTSSV 3
@@ -73,7 +73,7 @@
  *
  *
  * Author   : Arnold Moene
- *            Department of Meteorlogy, Wageningen Agricultural University
+ *            Department of Meteorology, Wageningen Agricultural University
  *
  * Date     : June 1999
  * $Id$
@@ -131,17 +131,17 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      size_t   count[2], start[2];
      int     array_id,   i,   j,   num_bytes, curr_byte, timcol, rest_byte;
      int     linenum, colnum, status,  numcoldef = 0;
-     int     wanted_data, ncol, def_array_id;
+     int     wanted_data, ncol, def_array_id, l_index, l_curr_index;
      char    *printline = NULL, dumstring[100];
-     boolean have_start, have_stop, start_data, stop_data, end_txtline;
+     boolean have_start, have_stop, start_data, stop_data, end_txtline,
+             valid_sample;
 
 
            
     /* ....................................................................
      */
     /* (1) Read definition of columns from format file */
-
-    if (!list_line)
+    if    (!list_line)
       def_nc_file(ncid, formfile, coldef,   &numcoldef,   (int)   MAXCOL);
 
     /* (2) Initialize */
@@ -209,6 +209,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 	             myswitch = TXT_VALUE;
 	      } else
                   myswitch = bytetype((data+curr_byte));
+	      valid_sample = FALSE;
               switch (myswitch)   {
                  case TXT_VALUE:
 	             value = txtdata[colnum];
@@ -217,7 +218,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                          sprintf(dumstring, "%f ", value);
                          strcat(printline, dumstring);
                      }
-		     colnum++;
+		     if (colnum > 0) colnum++;
 		     if (colnum > ncol)
 			     end_txtline = TRUE;
 		     break;
@@ -228,14 +229,20 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                          sprintf(dumstring, "%f ", value);
                          strcat(printline, dumstring);
                      }
-                     colnum++;
+		     if (colnum > 0) {
+			    colnum++;
+			    valid_sample = TRUE;
+                     }
                      curr_byte = curr_byte + 2;
                      break;
                  case FOUR_BYTE_1:
                      if   (bytetype((data+curr_byte+2))   ==   FOUR_BYTE_2) {
                          value =  conv_four_byte((data+curr_byte), 
                              (data+curr_byte+2));
-                         colnum++;
+		         if (colnum > 0) {
+				 colnum++;
+				 valid_sample = TRUE;
+                         }
                          curr_byte = curr_byte + 4;
                      } else  {
                          if (sloppy)  {
@@ -254,8 +261,8 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                          sprintf(dumstring, "%f ", value);
                          strcat(printline, dumstring);
                      }
-
                      break;
+
                  case START_OUTPUT:
                      /* First handle conditions of previous ArrayID */
                      wanted_data = all_cond(loc_cond, n_cond);
@@ -276,6 +283,62 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                           printf("%s\n", printline);
                        free(printline);
                        printline = NULL;
+                     }
+
+		     /* Make sure that arrays of give array_id are
+		      * synchronized */
+                     for (i=0; i < numcoldef; i++) {
+                       if (coldef[i].array_id == array_id) {
+                         if (!coldef[i].got_val) { 
+                           if (coldef[i].missing_value == NO_VALUE) {
+	  	             switch(coldef[i].nc_type)
+		             {
+			       case NC_BYTE:
+		                  value = (float) NC_FILL_BYTE;
+                                  break;
+			       case NC_CHAR:
+		                  value = (float) NC_FILL_CHAR;
+                                  break;
+			       case NC_INT:
+			          value = (float) NC_FILL_INT;
+                                  break;
+			       case NC_SHORT:
+			          value = (float) NC_FILL_SHORT;
+                                  break;
+			       case NC_FLOAT:
+			           value = (float) NC_FILL_FLOAT;
+                                   break;
+			       case NC_DOUBLE:
+			           value = (float) NC_FILL_DOUBLE;
+                                   break;
+                             }
+                           } else {
+		             value = coldef[i].missing_value;
+			   }
+			   for (j = 0; j< coldef[i].ncol; j++)
+                               coldef[i].values[coldef[i].ncol*
+                                                coldef[i].curr_index+j] = 
+			             (float) value;
+                           printf("warning: filling missing value with fake\n");
+                           printf("line num = %i variable = %s\n", linenum, coldef[i].name);
+                           (coldef[i].index)++;
+                           (coldef[i].curr_index)++;
+                         }
+                       }
+                     }
+                     for (i=0; i < numcoldef; i++) {
+                       if (coldef[i].array_id == array_id) {
+			 l_index = coldef[i].index;
+			 l_curr_index = coldef[i].curr_index;
+		       }
+		     }
+                     for (i=0; i < numcoldef; i++) {
+                       if (coldef[i].array_id == array_id) {
+                          if ((l_index != coldef[i].index) ||
+                              (l_curr_index != coldef[i].curr_index))
+                              printf("error: data of various columns not in sync at line num = %i variable = %s\n", linenum, coldef[i].name);
+			      exit;
+                       }
                      }
                      /* If data were not wanted, skip one line back in
                       * storage array (only for those arrays where we got
@@ -302,6 +365,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 		           array_id = (int) txtdata[0];
 		        else 
                            array_id   =   conv_arrayid((data+curr_byte));
+
                      /* Value may be needed for condition checks */
                      value = (float) array_id;
                      reset_cond(loc_cond, n_cond, array_id);
@@ -321,19 +385,17 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  case DUMMY_WORD:
                      printf("found dummy word on line %i\n", linenum);
                      curr_byte =   curr_byte +   2;
-	             /* Just up the column number, to prohibit that 
-		      * dummy the previous value is written to
-		      * the last column */
-                     colnum++;
+			/* Set column number to -1 to show that something is 
+			 * wrong */ 
+                     colnum = -1;
                      break;
                  default:
                      if (sloppy) {
                         printf("warning unkown byte type\n");
                         curr_byte++;
-			/* Just up the column number, to prohibit that 
-			 * dummy the previous value is written to
-			 * the last column */
-                        colnum++;
+			/* Set column number to -1 to show that something is 
+			 * wrong */ 
+                        colnum = -1;
                      } else   {
                         status = nc_close(ncid);
                         close(infile);
@@ -350,7 +412,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
               check_cond(&stop_cond, 1, array_id, colnum, value);
             
             /* (3.2.2) Put sample in appropriate array */
-            if   (!list_line) {
+            if   (!list_line && valid_sample) {
                for   (i=0;   i<   numcoldef; i++) {
 
                 /*  Either:
@@ -432,17 +494,17 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                        * put previously stored data in array */
                       } else {
                           if (coldef[i].got_follow_val) {
-                             for (j=0; j<coldef[i].ncol; j++)
+                            for (j=0; j<coldef[i].ncol; j++)
                                 coldef[i].values[(coldef[i].ncol)*
                                                  coldef[i].curr_index+j]
                                    = coldef[i].follow_val[j];
-	                         (coldef[i].index)++;
+	                    (coldef[i].index)++;
                             (coldef[i].curr_index)++;
                             coldef[i].got_val = TRUE;
                             if (coldef[i].follow_missed) {
-                              printf("warning: did not have data for following variable %s on %i lines\n",
-                                     coldef[i].name, coldef[i].follow_missed);
-                              coldef[i].follow_missed = 0;
+                               printf("warning: did not have data for following variable %s on %i lines\n",
+                               coldef[i].name, coldef[i].follow_missed);
+                               coldef[i].follow_missed = 0;
                             }
                           } else
                              (coldef[i].follow_missed)++;
@@ -667,8 +729,7 @@ int main(int argc, char   *argv[])
             printf("Invalid flag : %s\n",   arg);
             info(TRUE);
         }
-    }
-
+    } 
     /* (3) Trap error situations */
     only_usage   = TRUE;
     if (!list_line && !strlen(outfname)) {
@@ -687,7 +748,7 @@ int main(int argc, char   *argv[])
     /* (4) Open files and test for success */
     /* (4.1) Output file */
     if (!list_line) {
-      status =   nc_create(outfname, NC_CLOBBER, &ncid);
+      status =   nc_create(outfname, NC_WRITE, &ncid);
       if   (status != NC_NOERR)   
          nc_handle_error(status);
     }
