@@ -24,10 +24,12 @@
 
 <abstract>
 <para>
-This README file describes the program csi2ncdf. The purpose of the
-program is to convert a Campbell binary file (final storage format) to
-a netCDF file. The reader of this README file is supposed to be more or
-less familiar with Campbell software and file formats.
+This README file describes the program <command>csi2ncdf</command>. 
+The purpose <command>csi2ncdf</command> is to convert a Campbell binary 
+file (final storage format) to a netCDF file. 
+Besides describing the program and the format file that is needed 
+by it, it also gives a brief introduction on Campbell data files
+and the NetCDF format.
 </para>
 </abstract>
 </articleinfo>
@@ -67,8 +69,14 @@ For a complete version of the GPL, see <xref linkend="gpl">.
 <para>
 The purpose of <command>csi2ncdf</command> is to convert the
 data files that are produced by dataloggers of Campbell Scientific
-(see <ulink url="http://www.campbellsci.com">www.campbellsci.com</ulink>) to NetCDF files
+(CSI, see <ulink url="http://www.campbellsci.com">www.campbellsci.com</ulink>) to NetCDF files
 (see <ulink url="http://www.unidata.ucar.edu/packages/netcdf/">www.unidata.ucar.edu/packages/netcdf</ulink>).
+In addition to pure conversion, the program can also be used
+to make selections of the data, while converting from CSI to NetCDF.
+Furthermore, the contents of the CSI fle can be dumped to standard output 
+(screen) for quick inspection, or to convert the CSI file to ASCII
+(in this way it is a very simpified version of the Campbell 'split' program).
+
 
 The program is invoked as:
 
@@ -95,7 +103,7 @@ The flags have the following meaning:
 
 <screen>
 -i infile      name of input (Campbell) file 
--o outfile     name of output (netcdf) file
+-o outfile     name of output (NetCDF) file
 -f formatfile  name of file that describes the format of the 
                Campbell file
 -l num_lines   list num_lines lines from input file to screen
@@ -114,7 +122,7 @@ Either the combination of flags <option>-i</option>, <option>-o</option> and
 <option>-f</option> can be used, or the <option>-l</option>  flag.
 
 The rest of this README is dedicated to descriptions of some of the features
-of the Campbell binary files, netcdf files and the format file.
+of the Campbell binary files, NetCDF files and the format file.
 </para>
 </sect1>
 
@@ -129,16 +137,19 @@ array ID is used to identify lines of different content.
 In principle, data stored by different output instructions can have different
 storage intervals (e.g. 10 minutes and 30 minutes). However, in the
 current implementation, the time coordinate of all variables stored to
-a single netcdf file need to have equal length. Therefore, if different
+a single NetCDF file need to have equal length. Therefore, if different
 variables have a different number of samples, they should be stored to
-different netcdf files.
+different NetCDF files.
+
+The details about how numbers are stored in Campbell binary files can
+be found in the manuals accompanying the Campbell dataloggers.
 </para>
 </sect1>
 
 <sect1 id="netcdf"><title> Netcdf file</title>
 <para>
 Netcdf files can be used to store data in a device independent format. 
-The contents of a netcdf file is built from three entities:
+The contents of a NetCDF file is built from three entities:
 <itemizedlist>
 <listitem><para>dimensions</para></listitem>
 <listitem><para>variables</para></listitem>
@@ -149,8 +160,8 @@ Dimensions, variables and an entire file can have attributes (the latter
 are called 'global attributes'). Attributes can be text, numbers, or arrays of
 numbers (e.g. an array of calibration coefficients).
 
-A dimension has a name (e.g. "time", "latitude") and a length. But one dimension
-of unlimited length is allowed in a netcdf file. This is useful if the length
+A dimension has a name (e.g. "time", "latitude") and a length. Only one dimension
+of unlimited length is allowed in a NetCDF file. This is useful if the length
 of a dimension (e.g. time) is not known at the moment the dimension is defined.
 Whereas data that are stored in a regular dimension, are stored contiguously
 (a[1], a[2], ..., a[n] are next to each other in the file), data that are stored
@@ -176,7 +187,7 @@ are individual samples, the alignment will make that each sample
 will take at least 4 bytes (e.g. a time series (with time is the unlimited
 dimension) of 2000 byte values, will take up 4*2000 = 8000 bytes, since each individual sample is 4 byte aligned).
 
-The makers and users of netcdf have agreed on certain 'conventions' with regards
+The makers and users of NetCDF have agreed on certain 'conventions' with regards
 to the names and contents of some attributes. Relevant for the current
 program are global attributes and variable attributes.
 
@@ -191,7 +202,7 @@ history     a string describing what has been done to the data (in
 Variable attributes are:
 <screen>
 units         a string giving the units; examples as proposed by the
-              makers of netcdf are (see below)
+              makers of NetCDF are (see below)
 long_name     a string with an alternative, more complete name
 scale_factor  value should be multiplied with ...
 add_offset    offset to add to the data (after scaling with 
@@ -333,7 +344,7 @@ Required tokens are:
 <screen>
 id              array ID
 col_num         column number
-var_name        name to be used in netcdf file
+var_name        name to be used in NetCDF file
 units           string giving the units (see <xref linkend="netcdf">)
 </screen>
 
@@ -349,7 +360,7 @@ Optional tokens are:
 <screen>
 ncol            number of contiguous columns to use for the data;
                 default: ncol=1; if ncol >1, the variable in the
-                netcdf file gets an extra dimension of length
+                NetCDF file gets an extra dimension of length
                 ncol; the name of this dimension should be
                 given with dimname; now col is interpreted as the 
 	        first column in the Campbell file to get
@@ -449,7 +460,7 @@ remark         NetCDF global attribute: remark
 timevar        NetCDF name of time dimension
 id             array ID in CSI binary file
 col_num        column number in CSI binary file
-var_name       NetCDF name to be used in netcdf file
+var_name       NetCDF name to be used in NetCDF file
 units          NetCDF string giving the units; 
 ncol           number of CSI contiguous columns to use for 
                the data;
