@@ -114,7 +114,8 @@ Format file
 Comment lines (and comments at the end of a line) are preceded by
 a double slash.
 Values are assigned with a = sign; strings are surrounded by
-double quotes.
+double quotes. Maximum line length is 1024 characters (this can simply
+be extended).
 
 
 Available global attributes (valid for the entire dataset/file)

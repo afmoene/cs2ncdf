@@ -1,11 +1,12 @@
+/* $Id$ */
 #include "netcdf.h"
 #include "in_out.h"
 #include "error.h"
 
 
 #define NO_VALUE -9991
-#define MAX_BYTES 256
-#define MAX_SAMPLES 1
+#define MAX_SAMPLES 64
+#define MAX_LINELENGTH  1024
 
 /* ........................................................................
  * type declarations
@@ -24,11 +25,12 @@ typedef struct {
   char *unit;
   int nc_var;
   int nc_type;
-  int nc_dim;
+  int nc_dim[2];
   float *values;
   size_t index;
   int curr_index;
   size_t first_index;
+  int ncol;
 } column_def;
 
 typedef struct {
@@ -80,8 +82,9 @@ char mess[255];
  *            valid_min        out  valid minimum value
  *            valid_max        out  valid maximum value
  *            missing_value    out  value signifying a missing value
+ *            type             out  storage type
  *            globaldef        out  global definitions
- *            timedef          out  time variable definitions
+ *            timename         out  time variable name
  * Return value: 1 if line was read succesfully, -1 of 0 otherwise
  *
  * Method   : 
@@ -94,9 +97,9 @@ int scan_line(FILE *formfile, int *id, int *col,
               float *valid_min, float *valid_max,
               float *missing_value, int *type,
               global_def *globaldef,
-	      char *timename) {
+	      char *timename, int *ncol, char *dimname) {
 
-char line[255], linecopy[255], *stringp, dumstring[255];
+char line[MAX_LINELENGTH], linecopy[MAX_LINELENGTH], *stringp, dumstring[255];
 int  pos, status, i;
 boolean 
      id_found = FALSE,
@@ -110,7 +113,9 @@ boolean
      valid_max_found = FALSE,
      missing_value_found = FALSE,
      time_found = FALSE,
-     type_found = FALSE;
+     type_found = FALSE,
+     ncol_found = FALSE,
+     dimname_found = FALSE;
 
     /* (1) Get one line of text */
     for (i=0; i< 256; i++) {
@@ -285,6 +290,32 @@ boolean
         }
     }
 
+    /* (3.12) Number of columns */
+    if ( (stringp = strstr(linecopy, "ncol")) ) {
+        if ( (stringp = strstr(stringp, "=")) ) {
+           status = sscanf(stringp, "=%i", ncol);
+           if (status != 1) 
+              error("could not convert number of columns", -1);
+           else
+              ncol_found = TRUE;
+        } else {
+              error("could not find = sign for number of columns", -1);
+        }
+    }
+
+    /* (3.5)  Name of extra dimension */
+    if ( (stringp = strstr(linecopy, "dimname")) ) {
+        if ( (stringp = strstr(stringp, "=")) ) {
+           if (!strcpy(dimname, quoted_string(stringp)))
+              error("could not convert name of extra dimension ", -1);
+           else 
+              dimname_found = TRUE;
+        } else {
+              error("could not find = sign for name of extra dimension", -1);
+        }
+    }
+
+
     /* (4)  Global attributes */
     /* (4.1)  Title attribute */
     if ( (stringp = strstr(linecopy, "title")) )  {
@@ -320,6 +351,10 @@ boolean
         }
     }
 
+     if (ncol_found && !dimname_found) {
+        error("number of columns defined, but no name for extra dimension",-1);
+     }
+
      if (id_found || col_found || name_found || unit_found) {
         if ((id_found && col_found && name_found && unit_found) ||
 	    (id_found && time_found))
@@ -351,10 +386,10 @@ void def_nc_file(int ncid, FILE *formfile,
                  column_def *coldef, int *numcoldef, int maxnumcoldef) {
 int 
     status,
-    i, arrayid, column, numtimedef, type, dimid;
+    i, arrayid, column, numtimedef, type, dimid, ncol, newdim, ndims;
 char
     name[255], unit[255], long_name[255],
-    timename[255], mess[255];
+    timename[255], mess[255], dimname[255];
 float
     scale_factor, add_offset, valid_min, valid_max, missing_value;
 global_def
@@ -381,12 +416,13 @@ boolean
        valid_max = NO_VALUE;
        missing_value = NO_VALUE;
        type = NC_FLOAT;
+       ncol = 1;
        
        /* (2.2) Get info from a line */
        if (scan_line(formfile, &arrayid, &column, name, unit, 
                      long_name, &scale_factor, &add_offset,
                      &valid_min, &valid_max, &missing_value, &type,
-                     &globaldef, timename)) {
+                     &globaldef, timename, &ncol, dimname)) {
 
 	  /* 2.2.1) This is a time coordinate definition */
 	  if (strlen(timename)) {
@@ -439,7 +475,7 @@ boolean
 	      found_timedim = FALSE;
 	      for (i=0; i < numtimedef; i++) {
 	         if (timedef[i].array_id == arrayid) {
-	            (*(coldef+*numcoldef)).nc_dim = 
+	            (*(coldef+*numcoldef)).nc_dim[0] =
 		       timedef[i].nc_dim;
 		     found_timedim = TRUE;
                  }
@@ -447,6 +483,15 @@ boolean
 	      if (!found_timedim) {
                   sprintf(mess,"could not find time dimension for arrayID %i\n", arrayid);
 	          error(mess,-1);
+              }
+              /* number of columns */
+              (*(coldef+*numcoldef)).ncol = ncol;
+              if (ncol > 1) {
+                 status = nc_def_dim(ncid, dimname,
+                                     (size_t) ncol, &newdim);
+                 (*(coldef+*numcoldef)).nc_dim[1] = newdim;
+                 if (status != NC_NOERR)
+                    nc_handle_error(status);
               }
 
 	      /* Long name */
@@ -466,7 +511,8 @@ boolean
 	      (*(coldef+*numcoldef)).missing_value = missing_value;
 	      /* Make room for floats (conversions handled by netcdf */
               (*(coldef+*numcoldef)).values = 
-	           (float *) malloc(sizeof(float)*MAX_SAMPLES);
+	           (float *) malloc(sizeof(float)*MAX_SAMPLES*
+	                     (*(coldef+*numcoldef)).ncol);
 
 	      /* Initialize counters */
 	      (*(coldef+*numcoldef)).index = 0;
@@ -481,9 +527,13 @@ boolean
     /* (3) Define variables and attributes */
     for (i=0; i<*numcoldef; i++) {
       /* (3.1) Variable */
+      if ((*(coldef+i)).ncol > 1)
+          ndims=2;
+      else
+          ndims=1;
       status = nc_def_var(ncid, (*(coldef+i)).name, 
-                                (*(coldef+i)).nc_type, 1,
-                                &(*(coldef+i)).nc_dim, 
+                                (*(coldef+i)).nc_type, ndims,
+                                (*(coldef+i)).nc_dim,
                                 &(*(coldef+i)).nc_var) ;
       if (status != NC_NOERR) 
           nc_handle_error(status);

@@ -1,5 +1,4 @@
-#include "in_out.h"
-#include "error.h"
+/* $Id$ */
 
 #define START_OUTPUT   1
 #define TWO_BYTE       2
@@ -35,7 +34,7 @@
 #define PATT_4_DECIMAL6 0x82
 
 #define NO_VALUE -9991
-#define MAX_BYTES 256
+#define MAX_BYTES 8196
 
 
 /* ........................................................................
@@ -154,11 +153,6 @@ float conv_four_byte(unsigned char byte1[2], unsigned char byte2[2]) {
         default:
            break;
     }
-/*
-    base = (byte2[1] & 0x10)*65536+
-           (byte1[1] & 0xFF)*256+
-            byte2[1];
-            */
     base = (byte2[0] & 0x01)*65536 +
             byte1[1]*256+
             byte2[1];
