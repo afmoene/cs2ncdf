@@ -1,0 +1,35 @@
+// Example format file for csi2ncdf (conversion of Campbell
+// binary storage to netcdf
+// Comment lines (and comments at the end of a line) are preceded by
+// a double slash.
+// Values are assigned with a = sign; strings are surrounded by
+// double quotes.
+//
+// Available global attributes (valid for the entire dataset/file)
+// are: title and history
+// Each variable in the input file is defined on one line of this
+// format file.
+// Required tokens are: id (array ID)
+//                      col (column number)
+//                      name (name to be used in netcdf file)
+//                      units (string giving the units; examples as 
+//                             proposed by the makers of netcdf:
+//                             10 kilogram meter second-2
+//                             9.8696044 radian2
+//                             0.555556 kelvin @ 255.372
+//                             10.471976 radian second-1
+//                             9.80665 meter2 second-2
+//                             98636.5 kilogram meter-1 second-2
+//                             0.001 seconds since 1992-12-31 19:34:0.1000 UTC
+// Optional tokens are: long_name (an alternative, more complete name)
+//                      scale_factor (value should be multiplied with ..)
+//                      add_offset (offset to add to the data (after scaling
+//                                  with scale_factor)
+//                      valid_min (valid minimum value)
+//                      valid_max (valid minimum value)
+//                      missing_value (missing values are indicated by ..)
+title="een klein experimentje met de 4draadsmeting"
+history="een datafile"
+id = 105 col = 2 name="doy" units="days since 1999-01-01" long_name="doy of year" 
+id = 105 col = 3 name="time" units="-" missing_value = -999
+id = 105 col = 4 name="temp" units="-" 
