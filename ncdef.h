@@ -92,7 +92,7 @@ char *non_space(char *string, const char *word, char letter) {
 void nc_handle_error(int nc_error) {
 char mess[MAX_STRINGLENGTH];
    if (nc_error != NC_NOERR) {
-      sprintf(mess, "%s\n",nc_strerror(nc_error));
+      sprintf(mess, "NetCDF error: %s\n",nc_strerror(nc_error));
       error(mess, nc_error);
    }
 }
@@ -212,11 +212,10 @@ int scan_line(FILE *formfile, int *id, int *col,
 
 char *line = NULL,
      *linecopy = NULL,
-     *stringp = NULL,
      dumline[MAX_LINELENGTH],
      dumstring[MAX_STRINGLENGTH], mess[2*MAX_LINELENGTH],
      *slashp = NULL;
-int  pos, status, i, j, dum_int;
+int  pos, dum_int;
 boolean
      otherline = TRUE,
      id_found = FALSE,
@@ -424,7 +423,8 @@ void def_nc_file(int ncid, FILE *formfile,
 int 
     status,
     i, j,arrayid, column, type, dimid, ncol, 
-    newdim, ndims, follow_id, search_id, num_time_comp;
+    newdim, follow_id, search_id, num_time_comp;
+size_t ndims;
 char
     name[MAX_STRINGLENGTH], unit[MAX_STRINGLENGTH], long_name[MAX_STRINGLENGTH],
     timename[MAX_STRINGLENGTH], mess[MAX_STRINGLENGTH], dimname[MAX_STRINGLENGTH];
@@ -499,7 +499,7 @@ boolean
                  timedef.nc_dim = dimid;
               else {
                  status = nc_def_dim(ncid, timedef.name,
-                       NC_UNLIMITED, &(timedef.nc_dim));
+                       (size_t) NC_UNLIMITED, &(timedef.nc_dim));
                  if (status != NC_NOERR)
                     nc_handle_error(status);
               }
@@ -524,11 +524,11 @@ boolean
 	      (*(coldef+*numcoldef)).col_num = column;
 	      /* Define name */
 	      (*(coldef+*numcoldef)).name = 
-		(char *)malloc(strlen(name)*sizeof(char));
+            (char *)malloc(strlen(name)*sizeof(char));
 	      strcpy((*(coldef+*numcoldef)).name, name);
 	      /* Define units */
 	      (*(coldef+*numcoldef)).unit = 
-		(char *)malloc(strlen(unit)*sizeof(char));
+            (char *)malloc(strlen(unit)*sizeof(char));
 	      strcpy((*(coldef+*numcoldef)).unit, unit);
 	      /* Define netcdf type */
 	      (*(coldef+*numcoldef)).nc_type = type;
