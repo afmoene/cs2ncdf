@@ -34,7 +34,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.2.2.pre"
+#define CSI2NCDF_VER "2.2.2"
 #define FTYPE_CSIBIN 1
 #define FTYPE_TXTCSV 2
 #define FTYPE_TXTSSV 3
