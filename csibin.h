@@ -1,4 +1,23 @@
 /* $Id$ */
+/*
+ * csibin.h: routines to parse a binary file from Campbell Scientific datalogger
+ * Copyright (C) 2000  Meteorology and Air Quality Group (Wageningen University),
+ *                     Arnold Moene
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ */
 
 #define START_OUTPUT   1
 #define TWO_BYTE       2
@@ -37,7 +56,7 @@
 #define PATT_4_DECIMAL6 0x82
 
 #define NO_VALUE -9991
-#define MAX_BYTES 10000
+#define MAX_BYTES 50000
 
 
 /* ........................................................................

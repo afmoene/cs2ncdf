@@ -1,4 +1,24 @@
 /* $Id$ */
+/* csi2ncdf: program to convert data files of Campbell Scientific Inc. to 
+ *           NetCDF files.
+ * Copyright (C) 2000 Meteorology and Air Quality Group (Wageningen University),
+ *                    Arnold Moene
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
+ */
 #include   <stdlib.h>
 #include   <stdio.h>
 #include   <string.h>
@@ -14,7 +34,7 @@
 #include   "csicond.h"
 
 
-#define CSI2NCDF_VER "2.1.0"
+#define CSI2NCDF_VER "2.1.1"
 
 /* ........................................................................
  *
@@ -45,8 +65,6 @@
  *            -h            : displays usage
  *
  *
- * Method   : 
- * Remark   : 
  * Author   : Arnold Moene
  *            Department of Meteorlogy, Wageningen Agricultural University
  *
@@ -125,7 +143,11 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
     have_stop = (stop_cond.cond_text != NULL);
     if (have_start)
        start_data = FALSE;
+    else 
+       start_data = FALSE;
     if (have_stop)
+       stop_data = FALSE;
+    else 
        stop_data = FALSE;
     
     /* (3) Loop input file, reading some data at once, and writing to
@@ -144,7 +166,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
        if ((num_bytes =
            fread(buffer, sizeof(data[0]), MAX_BYTES, infile))   ==   0)
            return;
-		 /* (3.2) Data read, so process now: walk through data */
+       /* (3.2) Data read, so process now: walk through data */
        else   {
          /* Copy data from buffer to data */
          for (i = 0; i < rest_byte; i++)
@@ -155,7 +177,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
          curr_byte = 0;
          /* We have to take the risk that the last 2 bytes are the first half
             of a 4 byte word, bad luck */
-         while   (!stop_data && (curr_byte < num_bytes-2))   {
+         while (!stop_data && (curr_byte < num_bytes-2))   {
             /* (3.2.1) Determine type of byte read */
             switch (bytetype((data+curr_byte)))   {
               case TWO_BYTE:
@@ -635,8 +657,9 @@ int main(int argc, char   *argv[])
 void info(boolean usage)
 {
     /* Give info about usage of program */
-        printf("Usage: csi2ncdf [-i inputfile -o outputfile \n");
-        printf("       -f formatfile] [-l num_lines] -s -h  \n\n");
+        printf("Usage: csi2ncdf -i inputfile [-o outputfile \n");
+        printf("       -f formatfile] [-l num_lines] [-s] \n");
+	printf("       [-c condition] -h  \n\n");
 
     /* If not only usage info requested, give more info */
         if (!usage)
@@ -651,6 +674,11 @@ void info(boolean usage)
         printf(" -c condition     : only output data subject to condition\n");
         printf("                    (see README for details)\n");
         printf(" -h               : displays usage\n");
-	printf("Version: %s", CSI2NCDF_VER);
+	printf("Version: %s\n", CSI2NCDF_VER);
+        printf("Copyright (C) 2000 Meteorology and Air Quality Group (Wageningen University), Arnold Moene\n");
+        printf("This program is free software; you can redistribute it and/or\n");
+        printf("modify it under the terms of the GNU General Public License\n");
+        printf("as published by the Free Software Foundation; either version 2\n");
+        printf("of the License, or (at your option) any later version.\n");
         }
 }
