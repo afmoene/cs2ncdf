@@ -1,7 +1,12 @@
 $Id$
 Changelog for csi2ncdf
-Version 2.2.12: 2005-03-24 (arnold.moeen@wur.nl)
-* Now *really* fixed the problem with text files
+Version 2.2.12: 2005-04-20 (arnold.moene@wur.nl)
+* NB: there were a number of different versions 2.2.11 floating around on the
+webserver. Sorry for the confusion
+* Now *really* fixed the problem with text files (this was already fixed by
+March 24, but not released through the website, only internally.)
+* TOB1 now also may contain floats of type IEEE4L, which appears to be
+identical to IEEE4
 Version 2.2.11: 2005-03-23 (arnold.moeen@wur.nl)
 * added logic to take care of textfiles with no array-id  (switch -a) in first column and
 data that are needed from the first column (before we only could get data

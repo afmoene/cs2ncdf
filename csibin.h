@@ -28,6 +28,7 @@
 #define TOB_FP2        7
 #define TOB_ULONG      8
 #define TOB_IEEE4      9
+#define TOB_IEEE4L     10
 
 #define MASK_START_OUTPUT 0xFC
 #define MASK_1_OF_FOUR 0x3C

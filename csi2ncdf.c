@@ -140,6 +140,8 @@ void typeline_decode(char* s, int coltype[MAXCOL],  int *ncol) {
 	   coltype[col] = TOB_ULONG;
        else if (! strcmp(dumstring2, "IEEE4"))
 	   coltype[col] = TOB_IEEE4;
+       else if (! strcmp(dumstring2, "IEEE4L"))
+	   coltype[col] = TOB_IEEE4L;
        else if (! strcmp(dumstring2, "FP2"))
 	   coltype[col] = TOB_FP2;
        else
@@ -191,6 +193,10 @@ void do_conv_tob1(FILE *infile, int ncid, FILE *formfile, int list_line, boolean
 		    if (print_col[i]) printf("%u ", dum_long);
 		    break;
                  case TOB_IEEE4:
+                    fread(&dum_float, sizeof(dum_float), 1, infile);
+		    if (print_col[i]) printf("%f ", dum_float);
+		    break;
+                 case TOB_IEEE4L:
                     fread(&dum_float, sizeof(dum_float), 1, infile);
 		    if (print_col[i]) printf("%f ", dum_float);
 		    break;
