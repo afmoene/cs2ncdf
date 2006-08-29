@@ -2,7 +2,7 @@
 # Define C-compiler and loader
 CC=gcc
 LD=gcc
-OPTIMIZATION =  -O4 -g
+OPTIMIZATION = 
 
 # Other libs
 LIBS= -lm
@@ -35,7 +35,7 @@ LIBNETCDF = $(NETCDF_LIB)
 
 # Commands
 MKDIR=mkdir -p
-PROJECT=ecpack
+PROJECT=csi2ncdf
 LS=ls
 SED=sed
 RM=rm -f
@@ -54,7 +54,7 @@ linux:
 	($(MKDIR) $(BUILD-LINUX) ; cd $(BUILD-LINUX) ; make -f ../Makefile FC=$(LFC) AR=$(LAR) RANLIB=$(LRANLIB) EXT=$(LEXT) INCDIR=$(LINCDIR) LIBDIR=$(LLIBDIR) csi2ncdf)
 
 
-csi2ncdf.o: ../csi2ncdf.c ../ncdef.h ../csicond.h ../csibin.h ../error.h ../in_out.h
+csi2ncdf.o: ../csi2ncdf.c ../ncdef.h ../csicond.h ../csibin.h ../error.h ../in_out.h ../csitob.h ../conv_endian.h
 	$(FC) $(CFLAGS) -c ../csi2ncdf.c
 
 csi2ncdf$(EXT): csi2ncdf.o

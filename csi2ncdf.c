@@ -23,6 +23,7 @@
 #include   <stdio.h>
 #include   <string.h>
 #include   <math.h>
+#include   <time.h>
 
 #include   "netcdf.h"
 
@@ -33,9 +34,10 @@
 #include   "in_out.h"
 #include   "error.h"
 #include   "csicond.h"
+#include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.12"
+#define CSI2NCDF_VER "2.2.13"
 
 /* ........................................................................
  *
@@ -72,6 +74,8 @@
  *            -n new_type   : input file is of new type:
  *                            tob1 -> table oriented binary 1 (minimal support, only
  *                            writing to stdout)
+ *                            tob2 -> TOB2 (only writing stdout)
+ *                            tob3 -> TOB2 (only writing stdout)
  *            -k colnum     : column to write to stdout (only works for tob1); more than
  *                            one -k option is allowed
  *            -h            : displays usage
@@ -101,119 +105,9 @@ void
 char
     program[100];                     /* name of program from command line */
 
-/* typeline_decode */
-void typeline_decode(char* s, int coltype[MAXCOL],  int *ncol) {
-
-   int status,i, col;
-   char dumstring[MAX_STRINGLENGTH], delimiter, *pCh,
-        *pChSpace,
-	dumstring2[MAX_STRINGLENGTH];
-   float dumfloat;
-
-   // Set separator
-   delimiter=',';
-
-   col = 0;
-   while ((col < MAXCOL) && (strchr(s, delimiter) != NULL)) {
-       if (s[0] == delimiter) {
-          i = 0;
-          while (s[i] == delimiter)
-             i++;
-          pChSpace = &s[i];
-          strcpy(s, pChSpace);
-       }
-       if (strchr(s, delimiter) != NULL) {
-          i = 0;
-          while (s[i] != delimiter)
-              i++;
-       } else
-	  i = strlen(s);
-       strncpy(dumstring, s, i);
-       if (dumstring[i-1] == '"') {
-          strncpy(dumstring2, &dumstring[1], i-2);
-          dumstring2[i-2]='\0';
-       } else {
-          strncpy(dumstring2, &dumstring[1], i-4);
-          dumstring2[i-4]='\0';
-       }
-       if (! strcmp(dumstring2, "ULONG"))
-	   coltype[col] = TOB_ULONG;
-       else if (! strcmp(dumstring2, "IEEE4"))
-	   coltype[col] = TOB_IEEE4;
-       else if (! strcmp(dumstring2, "IEEE4L"))
-	   coltype[col] = TOB_IEEE4L;
-       else if (! strcmp(dumstring2, "FP2"))
-	   coltype[col] = TOB_FP2;
-       else
-	   printf("Error: unknown data type in TOB file: %s\n", dumstring2);
-       s = s + i ;
-       col++;
-   }
-   *ncol = col;
-}
-
-/* ........................................................................
- * Function : do_conv_tob1
- * Purpose  : Rudimentary function to convert one data column from TOB1 
- *            file to text on standard output
- *
- * Interface: infile           in   input files
- *            ncid             out  netcdf id of output file
- *            formfile         in   text file describing format
- *            list_line        in   number of lines of input file to
- *                                  list
- *            print_col        in   switch which columns should be printed
- * Date     : December 16, 2003
- */
-void do_conv_tob1(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL])
-{
-	char buffer[1024], two_char[2];
-        char dumstring[MAX_STRINGLENGTH], delimiter, *pCh,
-             *pChSpace, substring[MAX_STRINGLENGTH], s[MAX_STRINGLENGTH];
-	int  i, ncol, coltype[MAXCOL], cur_line;
-	unsigned long dum_long;
-	float dum_float;
 
 
-	/* Skip first four lines */
-        for (i = 0; i<4; i++) {
-           fgets(buffer, sizeof(buffer), infile);
-        }
-        fgets(buffer, sizeof(buffer), infile);
 
-	/* Determine number of columns and type of numbers */
-        typeline_decode(buffer, coltype,  &ncol);
-	cur_line = 0;
-        while (!feof(infile) && ((cur_line < list_line) || (list_line == -1))) {
-	   cur_line++;
-           for (i=0; i< ncol; i++) {
-              switch (coltype[i])  {
-                 case TOB_ULONG:
-                    fread(&dum_long, sizeof(dum_long), 1, infile);
-		    if (print_col[i]) printf("%u ", dum_long);
-		    break;
-                 case TOB_IEEE4:
-                    fread(&dum_float, sizeof(dum_float), 1, infile);
-		    if (print_col[i]) printf("%f ", dum_float);
-		    break;
-                 case TOB_IEEE4L:
-                    fread(&dum_float, sizeof(dum_float), 1, infile);
-		    if (print_col[i]) printf("%f ", dum_float);
-		    break;
-                 case TOB_FP2:
-                    fread(two_char, sizeof(two_char[0]), 2, infile);
-                    dum_float = conv_two_byte(two_char);
-		    if (print_col[i]) printf("%f ", dum_float);
-		    break;
-		 default:
-                    break;
-              }
-           }
-	   printf(" \n");
-        }
-
-		
-}
 
 /* ........................................................................
  * Function : do_conv_csi
@@ -902,7 +796,13 @@ int main(int argc, char   *argv[])
                case 'n' :
                  cmd_arg(&argv, &argc,   2,   dumstring);
 		 if (!strcmp(dumstring, "tob1")) {
-		     inftype = FTYPE_NEWTOB1;
+		     inftype = FTYPE_TOB1;
+		     txtfile = FALSE;
+		 } else if (!strcmp(dumstring, "tob2")) {
+		     inftype = FTYPE_TOB2;
+		     txtfile = FALSE;
+		 } else if (!strcmp(dumstring, "tob3")) {
+		     inftype = FTYPE_TOB3;
 		     txtfile = FALSE;
 		 } else
                      error("unknown new file type\n", -1);
@@ -942,8 +842,14 @@ int main(int argc, char   *argv[])
 
     /* (3) Trap error situations */
     only_usage   = TRUE;
-    if ((inftype == FTYPE_NEWTOB1) && (!list_line)) {
+    if ((inftype == FTYPE_TOB1) && (!list_line)) {
         error("file type is TOB1 and no listing to stdout requested\n", CMD_LINE_ERROR);
+    }
+    if ((inftype == FTYPE_TOB2) && (!list_line)) {
+        error("file type is TOB2 and no listing to stdout requested\n", CMD_LINE_ERROR);
+    }
+    if ((inftype == FTYPE_TOB3) && (!list_line)) {
+        error("file type is TOB3 and no listing to stdout requested\n", CMD_LINE_ERROR);
     }
     if (!list_line && !strlen(outfname)) {
         info(only_usage);
@@ -953,7 +859,8 @@ int main(int argc, char   *argv[])
         info(only_usage);
         error("no input file specified\n", CMD_LINE_ERROR);
     }
-    if ((inftype != FTYPE_NEWTOB1) && !list_line && !strlen(formatfname)) {
+    if ((inftype != FTYPE_TOB1) && (inftype != FTYPE_TOB2) && (inftype != FTYPE_TOB3) 
+        && !list_line && !strlen(formatfname)) {
         info(only_usage);
         error("no format file specified\n", CMD_LINE_ERROR);
     }
@@ -988,8 +895,8 @@ int main(int argc, char   *argv[])
     }
 
     /* (5) Do conversion */
-    if (inftype == FTYPE_NEWTOB1)
-       do_conv_tob1(infile, ncid, formfile, list_line, print_col);
+    if ((inftype == FTYPE_TOB1) || (inftype == FTYPE_TOB2) ||  (inftype == FTYPE_TOB3))
+       do_conv_tob(infile, ncid, formfile, list_line, print_col, inftype);
     else
        do_conv_csi(infile,   ncid,   formfile, list_line,
                 loc_cond, n_cond, start_cond, stop_cond, sloppy,inftype, 
