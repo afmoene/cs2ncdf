@@ -79,6 +79,7 @@
  *                            toa5 -> TOA5 (only writing stdout)
  *            -k colnum     : column to write to stdout (only works for tob1); more than
  *                            one -k option is allowed
+ *            -x skip_lines : number of lines to skip in input file
  *            -h            : displays usage
  *
  *
@@ -119,6 +120,15 @@ char
  *            formfile         in   text file describing format
  *            list_line        in   number of lines of input file to
  *                                  list
+ *            loc_cond         in   conditions
+ *            start_cond       in   start conditions
+ *            stop_cond        in   stop conditions
+ *            sloppy           in   sloppy flag
+ *            inftype          in   type of file
+ *            txtfile          in   is it a text file
+ *            fake             in   do we use a fake ArrayID
+ *            print_col        in   which columns to print to stdout 
+ *            skip_lines       in   number of lines to skip in text file
  *
  * Method   : 
  * Date     : June 1999
@@ -129,7 +139,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  maincond_def start_cond,
                  maincond_def stop_cond,
                  boolean sloppy, int inftype, boolean txtfile, boolean fake,
-		 boolean print_col[MAXCOL])
+		 boolean print_col[MAXCOL], int skip_lines)
 
 {
     /*
@@ -185,6 +195,11 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
     }
     for (i=0; i < numcoldef; i++)
        coldef[i].got_val = FALSE;
+
+    // Skip lines in text file
+    if (skip_lines && txtfile) 
+	for (i=0; i<skip_lines; i++)
+		fgets(txtline, sizeof(txtline), infile);
     
     /* (3) Loop input file, reading some data at once, and writing to
      *     netcdf file if array of data is full 
@@ -681,7 +696,8 @@ int main(int argc, char   *argv[])
         list_line   = 0,
         ncid = 0,
         n_cond = 0,
-	inftype = FTYPE_CSIBIN;
+	inftype = FTYPE_CSIBIN,
+	skip_lines = 0;
     maincond_def
         loc_cond[MAXCOND];
     maincond_def
@@ -824,6 +840,15 @@ int main(int argc, char   *argv[])
                      error("invalid column number (larger than MAXCOL)\n", CMD_LINE_ERROR);
 		 break;
 
+               /* Stdout column number */
+               case 'x':
+                 cmd_arg(&argv, &argc,   2,   dumstring);
+		 skip_lines = atoi(dumstring);
+                 if (skip_lines < 0)
+                     error("can not skip negative number of lines\n", CMD_LINE_ERROR);
+		 break;
+
+
                /* Invalid flag */
                default :
                   cmd_arg(&argv,   &argc, 1, arg);
@@ -873,6 +898,9 @@ int main(int argc, char   *argv[])
         info(only_usage);
         error("no format file specified\n", CMD_LINE_ERROR);
     }
+    if (skip_lines && !txtfile) {
+        error("you want to skip lines in an input file that is not a text file\n", CMD_LINE_ERROR);
+    }
 
     /* (4) Open files and test for success */
     /* (4.1) Output file */
@@ -911,7 +939,7 @@ int main(int argc, char   *argv[])
     else
        do_conv_csi(infile,   ncid,   formfile, list_line,
                 loc_cond, n_cond, start_cond, stop_cond, sloppy,inftype, 
-		txtfile, fake, print_col);
+		txtfile, fake, print_col, skip_lines);
 
     /* (6) Close files */
     fclose(infile);
@@ -964,17 +992,20 @@ void info(boolean usage)
         printf("                    ssv : space separated\n");
         printf("                    tsv : tab separated\n");
 	printf(" -n new_type      : input file is of type new binary type:\n");
-        printf("                    tob1: table oriented binary 1 (minimal support\n");
-        printf("                          only writing to stdout\n");
+        printf("                    tob1: table oriented binary 1 (minimal support, only writing to stdout\n");
+        printf("                    tob2: table oriented binary 1 (minimal support, only writing to stdout\n");
+        printf("                    tob3: table oriented binary 1 (minimal support, only writing to stdout\n");
+        printf("                    toa5: table oriented binary 1 (minimal support, only writing to stdout\n");
         printf(" -k colnum        : column to write to stdout (only works for tob1); more than\n");
         printf("                    one -k option is allowed\n");
         printf(" -a               : don't use arrayID from file (e.g. because there is no \n");
         printf("                    but assume that all lines have the same ID, which is taken \n");
         printf("                    from the first definition in the format file; only needed when\n");
         printf("                    writing a netcdf file. If listing to stdout, arrayID is set to 0\n");
+        printf(" -x skip_lines    : number of lines to skip in input text file\n");
         printf(" -h               : displays usage\n");
 	printf("Version: %s\n", CSI2NCDF_VER);
-        printf("Copyright (C) 2000-2003 Meteorology and Air Quality Group (Wageningen University), Arnold Moene\n");
+        printf("Copyright (C) 2000-2006 Meteorology and Air Quality Group (Wageningen University), Arnold Moene\n");
         printf("This program is free software; you can redistribute it and/or\n");
         printf("modify it under the terms of the GNU General Public License\n");
         printf("as published by the Free Software Foundation; either version 2\n");
