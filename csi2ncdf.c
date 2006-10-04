@@ -37,7 +37,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.13"
+#define CSI2NCDF_VER "2.2.14"
 
 /* ........................................................................
  *
@@ -76,6 +76,7 @@
  *                            writing to stdout)
  *                            tob2 -> TOB2 (only writing stdout)
  *                            tob3 -> TOB2 (only writing stdout)
+ *                            toa5 -> TOA5 (only writing stdout)
  *            -k colnum     : column to write to stdout (only works for tob1); more than
  *                            one -k option is allowed
  *            -h            : displays usage
@@ -176,11 +177,12 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
        stop_data = FALSE;
     else 
        stop_data = FALSE;
-    if (fake)
+    if (fake) {
        if (list_line)
           def_array_id = 0;
        else 
           def_array_id = coldef[0].array_id;
+    }
     for (i=0; i < numcoldef; i++)
        coldef[i].got_val = FALSE;
     
@@ -192,7 +194,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
     ndummy = 0;
     while ((!stop_data) &&
            (!list_line && !feof(infile)) ||
-           (linenum <= list_line   &&   !feof(infile))   ||
+           ((linenum <= list_line)   &&   !feof(infile))   ||
            (list_line == -1 && !feof(infile))) {
 
        rest_byte = num_bytes - curr_byte;
@@ -296,7 +298,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                              curr_byte++;
                          } else {
                              status   = nc_close(ncid);
-                             close(infile);
+                             fclose(infile);
                              printf("line num = %i %i\n", linenum, colnum);
                              error("unexpected byte pair in file", -1);
                          }
@@ -313,15 +315,16 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  case START_OUTPUT:
                      /* First handle conditions of previous ArrayID */
                      wanted_data = all_cond(loc_cond, n_cond);
-                     if (array_id > 0)
+                     if (array_id > 0) {
                        if (have_start)
                           start_data = (start_data || all_cond(&start_cond, 1));
                        else
                           start_data = TRUE;
-                     if (array_id > 0)
+                     }
+                     if (array_id > 0) {
                         if (have_stop)
-                        stop_data = all_cond(&stop_cond, 1);
-                     else
+                           stop_data = all_cond(&stop_cond, 1);
+                     } else
                         stop_data = FALSE;
                         
                      if (printline) {
@@ -483,7 +486,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                         colnum = -1;
                      } else   {
                         status = nc_close(ncid);
-                        close(infile);
+                        fclose(infile);
                         error("unknown byte type",-1);
                      }
                      break;
@@ -804,6 +807,9 @@ int main(int argc, char   *argv[])
 		 } else if (!strcmp(dumstring, "tob3")) {
 		     inftype = FTYPE_TOB3;
 		     txtfile = FALSE;
+		 } else if (!strcmp(dumstring, "toa5")) {
+		     inftype = FTYPE_TOA5;
+		     txtfile = TRUE;
 		 } else
                      error("unknown new file type\n", -1);
 		 break;
@@ -851,6 +857,9 @@ int main(int argc, char   *argv[])
     if ((inftype == FTYPE_TOB3) && (!list_line)) {
         error("file type is TOB3 and no listing to stdout requested\n", CMD_LINE_ERROR);
     }
+    if ((inftype == FTYPE_TOA5) && (!list_line)) {
+        error("file type is TOA5 and no listing to stdout requested\n", CMD_LINE_ERROR);
+    }
     if (!list_line && !strlen(outfname)) {
         info(only_usage);
         error("no output file specified\n", CMD_LINE_ERROR);
@@ -897,6 +906,8 @@ int main(int argc, char   *argv[])
     /* (5) Do conversion */
     if ((inftype == FTYPE_TOB1) || (inftype == FTYPE_TOB2) ||  (inftype == FTYPE_TOB3))
        do_conv_tob(infile, ncid, formfile, list_line, print_col, inftype);
+    else if (inftype == FTYPE_TOA5)
+       do_conv_toa(infile, ncid, formfile, list_line, print_col, inftype);
     else
        do_conv_csi(infile,   ncid,   formfile, list_line,
                 loc_cond, n_cond, start_cond, stop_cond, sloppy,inftype, 

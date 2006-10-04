@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "netcdf.h"
 #include "in_out.h"
 #include "error.h"
+#include <ctype.h>
+#include <unistd.h>
 
 
 #define NO_VALUE -9991
@@ -37,6 +39,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define FTYPE_TOB1 5
 #define FTYPE_TOB2 6
 #define FTYPE_TOB3 7
+#define FTYPE_TOA5 8
 
 
 /* ........................................................................
@@ -912,11 +915,8 @@ boolean
  */
 void txtdecode(char* s, double *txtdata, 
                 int inftype, int *ncol) {
-   int status,i, col;
-   char dumstring[MAX_STRINGLENGTH], delimiter, *pCh,
-        *pChSpace,
-	substring[MAX_STRINGLENGTH];
-   float dumfloat;
+   int i, col;
+   char dumstring[MAX_STRINGLENGTH], delimiter, *pChSpace;
 
    // Set separator
    if (inftype == FTYPE_TXTCSV) {

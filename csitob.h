@@ -23,6 +23,7 @@
 #include   "error.h"
 #include   "conv_endian.h"
 
+#define MAX_STRINGLENGTH 20000
 
 /* Struct to store information about the TOB file */
 typedef struct {
@@ -58,9 +59,7 @@ int daynumber( int year, int month, int day){
 
 /* Get a string from the delimited header line of a TOB file */
 char *get_tob_string(char *s, char delimiter) {
-	char dumstring[MAX_STRINGLENGTH], *pCh,
-		*pChSpace,
-		*dumstring2;
+	char dumstring[MAX_STRINGLENGTH], *pChSpace, *dumstring2;
 	int i;
 	
 	dumstring2 = (char *) malloc(MAX_STRINGLENGTH);
@@ -95,12 +94,11 @@ char *get_tob_string(char *s, char delimiter) {
 
 /* Decode the second line of a TOB2 or TOB3 file */
 void tob_decode(char* s, tob_info *info){
-   int status,i, framelength;
+   int i, framelength;
    char delimiter,
         *unitstring, 
 	numstring[MAX_STRINGLENGTH],
 	dumstring2[MAX_STRINGLENGTH];
-   float interval;
 
    /* Set separator */
    delimiter=',';
@@ -121,9 +119,9 @@ void tob_decode(char* s, tob_info *info){
    s += strlen(dumstring2) + 2;
 
    /* Find time units */
-   if (unitstring = strstr(dumstring2, "MSEC")) {
+   if ((unitstring = strstr(dumstring2, "MSEC"))) {
 	   strncpy(numstring, dumstring2, (unitstring-dumstring2));
-	   if ((*info).samp_interval = atof(numstring))
+	   if (((*info).samp_interval = atof(numstring)))
 	      (*info).samp_interval *= 0.001;
            else
               error("can not decode samping interval in MSEC", -1);
@@ -143,10 +141,9 @@ void tob_decode(char* s, tob_info *info){
 /* Decode the final line of the TOB header, which contains the definition
    of the variable types */
 void typeline_decode(char* s, int coltype[MAXCOL],  int *ncol) {
-   int status,i, col;
+   int i, col;
    char delimiter,
 	dumstring2[MAX_STRINGLENGTH];
-   float dumfloat;
 
    /* Set separator */
    delimiter=',';
@@ -182,7 +179,7 @@ void typeline_decode(char* s, int coltype[MAXCOL],  int *ncol) {
 /* Decode the timestap information contained in the frame header */
 struct tm decode_tobtime(long tobtime){
 	struct tm base_time;
-	long      del_sec, del_min, del_hour, del_day, trans_time, rest_sec, rest_min, rest_hour;
+	long      del_sec, del_min, del_hour, del_day, rest_sec, rest_min, rest_hour;
 
 	/* Set base time */
 	base_time.tm_mday=1;
@@ -241,15 +238,15 @@ struct tm decode_tobtime(long tobtime){
  *            list_line        in   number of lines of input file to
  *                                  list
  *            print_col        in   switch which columns should be printed
+ *            tob_type         in   switch for type of TOB file
  * Date     : December 16, 2003
  * Update   : August 28, 2006   : generalized to TOB1 and TOB3.
  */
 void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL], int tob_type)
 {
-	char buffer[1024]; 
+	char buffer[10000]; 
         unsigned char two_char[2];
-        char dumstring[MAX_STRINGLENGTH], delimiter, *pCh,
-             *pChSpace, substring[MAX_STRINGLENGTH], s[MAX_STRINGLENGTH];
+        char dumstring[MAX_STRINGLENGTH];
 	int  i, ncol, coltype[MAXCOL], cur_line, nskip, byte_inframe, frame_length,
 	     machine_endian;
 	unsigned long dum_long;
@@ -344,7 +341,7 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
                  case TOB_ULONG:
                     fread(&dum_long, sizeof(dum_long), 1, infile);
 		    byte_inframe+=4;
-		    if (print_col[i]) printf("%u ", dum_long);
+		    if (print_col[i]) printf("%i ", (int) dum_long);
 		    break;
                  case TOB_IEEE4:
                     fread(&dum_float, sizeof(dum_float), 1, infile);
@@ -390,3 +387,113 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
         }
 }
 
+/* ........................................................................
+ * Function : do_conv_toa
+ * Purpose  : Rudimentary function to convert data from TOA files (TOA5)
+ *            to text on standard output
+ *
+ * Interface: infile           in   input files
+ *            ncid             out  netcdf id of output file
+ *            formfile         in   text file describing format
+ *            list_line        in   number of lines of input file to
+ *                                  list
+ *            print_col        in   switch which columns should be printed
+ *            toa_type         in   switch for type of TOA file
+ * Date     : October 3, 2006
+ */
+void do_conv_toa(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL], int toa_type)
+{
+	char *buffer, dumstring2[MAX_STRINGLENGTH];
+        char dumstring[MAX_STRINGLENGTH], delimiter, *pChSpace;
+	int  i, cur_line, nskip, col;
+        int year, month, day, hour, min;
+        float sec;
+
+
+        buffer  = (char *) malloc(MAX_STRINGLENGTH);
+
+        /* TOA5 is comma separated */
+        delimiter = ',';
+
+	/* Skip first 3 lines */
+	if (toa_type == FTYPE_TOA5)
+		nskip = 3;
+        for (i = 0; i<nskip; i++)  {
+           fgets(buffer, MAX_STRINGLENGTH, infile);
+         }
+        /* Get last line of header and determine number of columns and type of
+           numbers*/
+        fgets(buffer, MAX_STRINGLENGTH, infile);
+//        typeline_decode(buffer, coltype,  &ncol);
+
+	cur_line = 0;
+        col = 0;
+	
+        /* Loop data */
+        while (!feof(infile) && ((cur_line < list_line) || (list_line == -1))) {
+	   /* Get a line */
+           fgets(buffer, MAX_STRINGLENGTH, infile);
+           cur_line++;
+           col = 0;
+           /* Get the time stamp */
+           while (strchr(buffer, delimiter) != NULL) {
+               // We start with a delimiter
+               if (buffer[0] == delimiter) {
+                   i = 0;
+                   while (buffer[i] == delimiter)
+                       i++;
+                   pChSpace = &buffer[i];
+                   strcpy(buffer, pChSpace);
+               }
+              // There is a delimiter in the line, proceed until found
+              if (strchr(buffer, delimiter) != NULL) {
+                 i = 0;
+                 while (buffer[i] != delimiter)
+                    i++;
+             // There is no longer a delimiter in the rest of the line, so just find the 
+             // part of the line that contains printable characters.
+              } else
+                 while (isprint(buffer[i])) i++;
+              strncpy(dumstring, buffer, i);
+              dumstring[i]='\0';
+
+              // Check if this really can be a number; it might be end of line!
+              if (isprint(dumstring[i-1])) {
+                   if (col==0) {
+                       year = -1;
+                       month = -1;
+                       day = -1;
+                       hour = -1 ;
+                       min = -1;
+                       sec = -1;
+
+		       strncpy(dumstring2,&(dumstring[1]),4);
+                       dumstring2[4]='\0';
+		       year = atoi(dumstring2);
+		       strncpy(dumstring2,&(dumstring[6]),2);
+                       dumstring2[2]='\0';
+		       month = atoi(dumstring2);
+		       strncpy(dumstring2,&(dumstring[9]),2);
+                       dumstring2[2]='\0';
+		       day = atoi(dumstring2);
+		       strncpy(dumstring2,&(dumstring[12]),2);
+                       dumstring2[2]='\0';
+		       hour = atoi(dumstring2);
+		       strncpy(dumstring2,&(dumstring[15]),2);
+                       dumstring2[2]='\0';
+		       min = atoi(dumstring2);
+		       strcpy(dumstring2,&(dumstring[18]));
+		       sec = atof(dumstring2);
+
+                       printf("%i %i %04i %f ", year, daynumber(year, month, day),  hour*100+min, sec);
+                   }
+                   if (col>0 && print_col[col]) printf("%f ",  atof(dumstring));
+                   buffer = buffer + i ;
+                   col++;
+              }
+
+           }
+	   printf(" \n");
+
+        }
+}

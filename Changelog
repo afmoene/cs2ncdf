@@ -1,5 +1,8 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.14: 2006-10-04 (arnold.moene@wur.nl)
+* implemented support for TOA5 (similar to that for TOB files)
+* did some internal clean up + update of documentation
 Version 2.2.13: 2006-08-28 (arnold.moene@wur.nl)
 * implemented support for TOB2 and TOB3 (similar to that for TOB1)
 * internally type FTYPE_NEWTOB1 was renamed to FTYPE_TOB1 (since it is not
