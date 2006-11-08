@@ -244,7 +244,7 @@ struct tm decode_tobtime(long tobtime){
  */
 void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL], int tob_type)
 {
-	char buffer[10000]; 
+	char buffer[MAX_STRINGLENGTH]; 
         unsigned char two_char[2];
         char dumstring[MAX_STRINGLENGTH];
 	int  i, ncol, coltype[MAXCOL], cur_line, nskip, byte_inframe, frame_length,
@@ -403,14 +403,16 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
  */
 void do_conv_toa(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL], int toa_type)
 {
-	char *buffer, dumstring2[MAX_STRINGLENGTH];
+	char *buffer, *bufferstart, dumstring2[MAX_STRINGLENGTH];
         char dumstring[MAX_STRINGLENGTH], delimiter, *pChSpace;
 	int  i, cur_line, nskip, col;
         int year, month, day, hour, min;
         float sec;
 
 
+	/* Allocate buffer and retain original start to reset pointer location later */
         buffer  = (char *) malloc(MAX_STRINGLENGTH);
+	bufferstart = buffer;
 
         /* TOA5 is comma separated */
         delimiter = ',';
@@ -421,16 +423,22 @@ void do_conv_toa(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
         for (i = 0; i<nskip; i++)  {
            fgets(buffer, MAX_STRINGLENGTH, infile);
          }
+
         /* Get last line of header and determine number of columns and type of
            numbers*/
         fgets(buffer, MAX_STRINGLENGTH, infile);
-//        typeline_decode(buffer, coltype,  &ncol);
+
+	// We might implement a check whether this is really TOA
+        // typeline_decode(buffer, coltype,  &ncol);
 
 	cur_line = 0;
         col = 0;
 	
         /* Loop data */
         while (!feof(infile) && ((cur_line < list_line) || (list_line == -1))) {
+           /* Reset start of buffer */
+           buffer = bufferstart;
+
 	   /* Get a line */
            fgets(buffer, MAX_STRINGLENGTH, infile);
            cur_line++;
@@ -496,4 +504,5 @@ void do_conv_toa(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
 	   printf(" \n");
 
         }
+        free(bufferstart);
 }
