@@ -37,7 +37,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.15"
+#define CSI2NCDF_VER "2.2.16"
 
 /* ........................................................................
  *
@@ -227,7 +227,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 
        /* (3.2) Data read, so process now: walk through data */
        /* if no more data in file, skip processing  */
-       if (num_bytes)  {
+       if (num_bytes && (ncol>0))  {
          if (!txtfile) {
             /* Copy data from buffer to data */
             for (i = 0; i < rest_byte; i++)
