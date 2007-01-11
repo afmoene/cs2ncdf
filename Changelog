@@ -1,5 +1,7 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.17: 2007-01-11 (arnold.moene@wur.nl)
+* Fixed a bug in creation of time from TOB2/3 timestamp
 Version 2.2.16: 2006-11-09 (arnold.moene@wur.nl)
 * Fixed bug in reading from textfile (now check if any data on line) 
 Version 2.2.15: 2006-11-08 (arnold.moene@wur.nl)

@@ -182,7 +182,7 @@ struct tm decode_tobtime(long tobtime){
 	long      del_sec, del_min, del_hour, del_day, rest_sec, rest_min, rest_hour;
 
 	/* Set base time */
-	base_time.tm_mday=1;
+	base_time.tm_mday=0;
 	base_time.tm_mon=0;
 	base_time.tm_year=90;
 	base_time.tm_min=0;
@@ -212,7 +212,7 @@ struct tm decode_tobtime(long tobtime){
 
 	base_time.tm_hour += del_hour;
 	rest_hour = base_time.tm_hour % 60;
-	del_day += (base_time.tm_hour - rest_hour)/60;
+	del_day += (base_time.tm_hour - rest_hour)/24;
 	base_time.tm_hour = rest_hour;
 
         /* Now allocate days to days, months and years */
@@ -224,6 +224,8 @@ struct tm decode_tobtime(long tobtime){
 			base_time.tm_year++;
 		}
 	}
+	base_time.tm_mday += del_day;
+
 	return base_time;
 }
 
