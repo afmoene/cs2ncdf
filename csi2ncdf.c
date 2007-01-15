@@ -37,7 +37,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.17"
+#define CSI2NCDF_VER "2.2.18"
 
 /* ........................................................................
  *
@@ -222,6 +222,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 	   colnum = 0;
        } else {
            num_bytes = fread(buffer, sizeof(data[0]), MAX_BYTES, infile);
+	   ncol = num_bytes;
        }
 
 
