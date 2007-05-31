@@ -241,10 +241,12 @@ struct tm decode_tobtime(long tobtime){
  *                                  list
  *            print_col        in   switch which columns should be printed
  *            tob_type         in   switch for type of TOB file
+ *            conv_tob1_time   in   should we convert time info in first TOB1 columns to real time ? (add extra columns in output)
  * Date     : December 16, 2003
  * Update   : August 28, 2006   : generalized to TOB1 and TOB3.
+ * Update   : June 1, 2007      : write TOB1 time to output
  */
-void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL], int tob_type)
+void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL], int tob_type, boolean conv_tob1_time)
 {
 	char buffer[MAX_STRINGLENGTH]; 
         unsigned char two_char[2];
@@ -254,7 +256,7 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
 	unsigned long dum_long;
 	unsigned int dum_int;
 	float dum_float, samp_interval, subseconds, rest;
-	struct tm tobtime;
+	struct tm tobtime, tob1time;
 	tob_info  tobfileinfo;
 
 	/* Check endianness of machine */
@@ -343,7 +345,17 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
                  case TOB_ULONG:
                     fread(&dum_long, sizeof(dum_long), 1, infile);
 		    byte_inframe+=4;
-		    if (print_col[i]) printf("%i ", (int) dum_long);
+		    if (conv_tob1_time) {
+			if (i==0) tob1time = decode_tobtime((long) dum_long);
+		        if (i==1) {
+		           subseconds = dum_long;
+	              	   printf("%i ", tob1time.tm_year+1900);
+		           printf("%i ", daynumber(tob1time.tm_year, tob1time.tm_mon+1, tob1time.tm_mday));
+		           printf("%i ", tob1time.tm_hour*100+tob1time.tm_min);
+		           printf("%f ", tob1time.tm_sec+subseconds/1e9);
+                        }
+                    } else 
+		        if (print_col[i]) printf("%i ", (int) dum_long);
 		    break;
                  case TOB_IEEE4:
                     fread(&dum_float, sizeof(dum_float), 1, infile);

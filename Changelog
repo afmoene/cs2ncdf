@@ -1,5 +1,8 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.19: 2007-06-01 (arnold.moene@wur.nl)
+* added option -y to convert the optional time information in the first
+columns of a TOB1 file to YYYY DOY HHMM SS.SSS information
 Version 2.2.18: 2007-01-15 (arnold.moene@wur.nl)
 * Fixed bug in reading of old-fashioned Campbell binary files (introduced in
 version 2.2.16)

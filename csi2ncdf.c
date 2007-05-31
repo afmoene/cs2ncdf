@@ -37,7 +37,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.18"
+#define CSI2NCDF_VER "2.2.19"
 
 /* ........................................................................
  *
@@ -689,7 +689,8 @@ int main(int argc, char   *argv[])
         sloppy   = FALSE,
         only_usage =   TRUE,                /* switch for info */
 	txtfile = FALSE,                  /* is input file a text file */
-	fake = FALSE;                     /* fake an array ID */
+	fake = FALSE,                     /* fake an array ID */
+        conv_tob1_time = FALSE;           /* convert first two columns of TOB1 to normal time info */
     int
         i,
         colnum,
@@ -767,6 +768,11 @@ int main(int argc, char   *argv[])
                case 'a'   :
                  fake   = TRUE;
                  break;
+
+               /* Convert TOB1 time info */
+               case 'y'   :
+                 conv_tob1_time   = TRUE;
+                 break;
                  
                /* Condition */
                case 'c'   :
@@ -841,7 +847,7 @@ int main(int argc, char   *argv[])
                      error("invalid column number (larger than MAXCOL)\n", CMD_LINE_ERROR);
 		 break;
 
-               /* Stdout column number */
+               /* Skip lines */
                case 'x':
                  cmd_arg(&argv, &argc,   2,   dumstring);
 		 skip_lines = atoi(dumstring);
@@ -934,7 +940,7 @@ int main(int argc, char   *argv[])
 
     /* (5) Do conversion */
     if ((inftype == FTYPE_TOB1) || (inftype == FTYPE_TOB2) ||  (inftype == FTYPE_TOB3))
-       do_conv_tob(infile, ncid, formfile, list_line, print_col, inftype);
+       do_conv_tob(infile, ncid, formfile, list_line, print_col, inftype, conv_tob1_time);
     else if (inftype == FTYPE_TOA5)
        do_conv_toa(infile, ncid, formfile, list_line, print_col, inftype);
     else
