@@ -1,5 +1,12 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.21: 2007-07-16 (arnold.moene@wur.nl)
+* fixed error in writing TOB1 data: it was not checked whether actually
+anything was read, but still output was produced (resulting in garbage at last
+line)
+Version 2.2.20: 2007-06-03 (arnold.moene@wur.nl)
+* fixed small error regarding converion of time in TOB1 file (unsigned longs
+which were not part of time columns were not printed)
 Version 2.2.19: 2007-06-01 (arnold.moene@wur.nl)
 * added option -y to convert the optional time information in the first
 columns of a TOB1 file to YYYY DOY HHMM SS.SSS information

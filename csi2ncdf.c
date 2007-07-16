@@ -37,7 +37,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.19"
+#define CSI2NCDF_VER "2.2.21"
 
 /* ........................................................................
  *
@@ -129,6 +129,7 @@ char
  *            fake             in   do we use a fake ArrayID
  *            print_col        in   which columns to print to stdout 
  *            skip_lines       in   number of lines to skip in text file
+ *            filenum          in   serial number of file
  *
  * Method   : 
  * Date     : June 1999
@@ -139,7 +140,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  maincond_def start_cond,
                  maincond_def stop_cond,
                  boolean sloppy, int inftype, boolean txtfile, boolean fake,
-		 boolean print_col[MAXCOL], int skip_lines)
+		 boolean print_col[MAXCOL], int skip_lines, int filenum)
 
 {
     /*
@@ -157,7 +158,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      int     linenum, colnum, status,  numcoldef;
      int     wanted_data, ncol, def_array_id, l_index, l_curr_index;
      int     ndummy;
-     char    *printline  , dumstring[100];
+     char    *printline = NULL  , dumstring[100];
      boolean have_start, have_stop, start_data, stop_data, end_txtline,
              valid_sample, fake_did_start_output;
      column_def
@@ -169,7 +170,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      */
     /* (1) Read definition of columns from format file */
     numcoldef = 0;
-    if    (!list_line)
+    if    ((!list_line) && (filenum == 0))
       def_nc_file(ncid, formfile, coldef,   &numcoldef,   (int)   MAXCOL);
 
     /* (2) Initialize */
@@ -210,7 +211,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
     while ((!stop_data) &&
            (!list_line && !feof(infile)) ||
            ((linenum <= list_line)   &&   !feof(infile))   ||
-           (list_line == -1 && !feof(infile))) {
+            (((list_line == -1) && !feof(infile)))) {
 
        rest_byte = num_bytes - curr_byte;
 
@@ -224,7 +225,6 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
            num_bytes = fread(buffer, sizeof(data[0]), MAX_BYTES, infile);
 	   ncol = num_bytes;
        }
-
 
        /* (3.2) Data read, so process now: walk through data */
        /* if no more data in file, skip processing  */
@@ -466,7 +466,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      linenum++;
                      if ((list_line   &&   linenum <= list_line) ||
                            (list_line == -1)) {
-			 free(printline);
+			 if (printline) free(printline);
                          printline = get_clearstring(MAXLINELEN);
 			 if (print_col[colnum-1]) {
 			    if (!fake)  
@@ -675,7 +675,7 @@ int main(int argc, char   *argv[])
      * variable declarations
      */
     char
-        infname[255]="",                /* name of input file */
+        infname[255][255],               /* names of input files */
         outfname[255]="",                /* name of output file */
         formatfname[255]="",             /* name of format file */
         dumstring[255]="",                /* dummy string */
@@ -699,7 +699,8 @@ int main(int argc, char   *argv[])
         ncid = 0,
         n_cond = 0,
 	inftype = FTYPE_CSIBIN,
-	skip_lines = 0;
+	skip_lines = 0,
+	num_infiles;
     maincond_def
         loc_cond[MAXCOND];
     maincond_def
@@ -716,6 +717,7 @@ int main(int argc, char   *argv[])
     stop_cond.cond_text = NULL;
     for (i=0; i< MAXCOL; i++)
 	    print_col[i] = FALSE;
+    num_infiles = 0;
     /* (1) Determine disk file name of program */
     strcpy(program,(argv[0]));
 
@@ -739,7 +741,8 @@ int main(int argc, char   *argv[])
 
                /* Input file */
                case 'i'   :
-                 cmd_arg(&argv, &argc,   2,   infname);
+                 cmd_arg(&argv, &argc,   2,   infname[num_infiles]);
+		 num_infiles++;
                  break;
 
                /* Format file */
@@ -896,7 +899,7 @@ int main(int argc, char   *argv[])
         info(only_usage);
         error("no output file specified\n", CMD_LINE_ERROR);
     }
-    if (!strlen(infname)) {
+    if (!num_infiles) {
         info(only_usage);
         error("no input file specified\n", CMD_LINE_ERROR);
     }
@@ -917,39 +920,44 @@ int main(int argc, char   *argv[])
          nc_handle_error(status);
     }
 
-    /* (4.2) Input file */
-    if (!strcmp(infname,"-")) 
-       infile = stdin;
-    else {
-       if (txtfile) 
-          infile = fopen(infname,   "rt");
-       else
-          infile = fopen(infname,   "rb");
-    }
-    if (infile  == NULL) {
-       sprintf(mess,   "cannot open file %s for reading.\n", infname);
-       error(mess, (int) FILE_NOT_FOUND);
-    }
-
-    /* (4.3) Format file */
+    /* (4.2) Format file */
     formfile = NULL;
     if (!list_line && (formfile = fopen(formatfname, "rt"))   ==   NULL)   {
        sprintf(mess,   "cannot open file %s for reading.\n", formatfname);
        error(mess, (int) FILE_NOT_FOUND);
     }
 
-    /* (5) Do conversion */
-    if ((inftype == FTYPE_TOB1) || (inftype == FTYPE_TOB2) ||  (inftype == FTYPE_TOB3))
-       do_conv_tob(infile, ncid, formfile, list_line, print_col, inftype, conv_tob1_time);
-    else if (inftype == FTYPE_TOA5)
-       do_conv_toa(infile, ncid, formfile, list_line, print_col, inftype);
-    else
-       do_conv_csi(infile,   ncid,   formfile, list_line,
-                loc_cond, n_cond, start_cond, stop_cond, sloppy,inftype, 
-		txtfile, fake, print_col, skip_lines);
+    /* (4.3) Cycle the input file */
+    for (i=0; i<num_infiles;i++) {
+       /* (4.3.1) Open input file */
+       if (!strcmp(infname[i],"-")) 
+          infile = stdin;
+       else {
+          if (txtfile) 
+             infile = fopen(infname[i],   "rt");
+          else
+             infile = fopen(infname[i],   "rb");
+       }
+       if (infile  == NULL) {
+          sprintf(mess,   "cannot open file %s for reading.\n", infname[i]);
+          error(mess, (int) FILE_NOT_FOUND);
+       }
 
-    /* (6) Close files */
-    fclose(infile);
+
+       /* (4.3.2) Do conversion */
+       if ((inftype == FTYPE_TOB1) || (inftype == FTYPE_TOB2) ||  (inftype == FTYPE_TOB3))
+          do_conv_tob(infile, ncid, formfile, list_line, print_col, inftype, conv_tob1_time);
+       else if (inftype == FTYPE_TOA5)
+          do_conv_toa(infile, ncid, formfile, list_line, print_col, inftype);
+       else
+          do_conv_csi(infile,   ncid,   formfile, list_line,
+                loc_cond, n_cond, start_cond, stop_cond, sloppy,inftype, 
+		txtfile, fake, print_col, skip_lines, i);
+
+       /* (4.3.3) Close input file */
+       fclose(infile);
+    }
+
     if (!list_line) {
       fclose(formfile);
       status =   nc_close(ncid);

@@ -258,6 +258,7 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
 	float dum_float, samp_interval, subseconds, rest;
 	struct tm tobtime, tob1time;
 	tob_info  tobfileinfo;
+	int      nitems;
 
 	/* Check endianness of machine */
         machine_endian = UtilEndianType();
@@ -313,7 +314,9 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
 		printf("%i ", tobtime.tm_hour*100+tobtime.tm_min);
 		printf("%f ", tobtime.tm_sec+subseconds);
            }
-           for (i=0; i< ncol; i++) {
+	   if (!feof(infile)) {
+	    nitems = 0 ;
+            for (i=0; i< ncol; i++) {
               /* We finished a frame */
               if ((tob_type == FTYPE_TOB2) || (tob_type == FTYPE_TOB3)) {
 		if (byte_inframe + 4  >= frame_length) {
@@ -343,48 +346,61 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
               /* Processing and reading depends on type of variable */
               switch (coltype[i])  {
                  case TOB_ULONG:
-                    fread(&dum_long, sizeof(dum_long), 1, infile);
-		    byte_inframe+=4;
-		    if (conv_tob1_time) {
-			if (i==0) tob1time = decode_tobtime((long) dum_long);
-		        if (i==1) {
-		           subseconds = dum_long;
-	              	   printf("%i ", tob1time.tm_year+1900);
-		           printf("%i ", daynumber(tob1time.tm_year, tob1time.tm_mon+1, tob1time.tm_mday));
-		           printf("%i ", tob1time.tm_hour*100+tob1time.tm_min);
-		           printf("%f ", tob1time.tm_sec+subseconds/1e9);
-                        }
-                    } else 
-		        if (print_col[i]) printf("%i ", (int) dum_long);
+                    nitems = fread(&dum_long, sizeof(dum_long), 1, infile);
+		    if (nitems) {
+	    	        byte_inframe+=4;
+		        if (conv_tob1_time) {
+			    if (i==0) tob1time = decode_tobtime((long) dum_long);
+		            if (i==1) {
+		               subseconds = dum_long;
+	              	       printf("%i ", tob1time.tm_year+1900);
+		               printf("%i ", daynumber(tob1time.tm_year, tob1time.tm_mon+1, tob1time.tm_mday));
+		               printf("%i ", tob1time.tm_hour*100+tob1time.tm_min);
+		               printf("%f ", tob1time.tm_sec+subseconds/1e9);
+                            }
+                        } 
+		        if (print_col[i])
+		            if (!conv_tob1_time || (i>1)) printf("%i ", (int) dum_long);
+	            }
 		    break;
                  case TOB_IEEE4:
-                    fread(&dum_float, sizeof(dum_float), 1, infile);
-		    byte_inframe+=4;
-		    if (print_col[i]) printf("%f ", dum_float);
+                    nitems = fread(&dum_float, sizeof(dum_float), 1, infile);
+		    if (nitems) {
+	  	       byte_inframe+=4;
+		       if (print_col[i]) printf("%f ", dum_float);
+		    }
 		    break;
                  case TOB_IEEE4L:
-                    fread(&dum_float, sizeof(dum_float), 1, infile);
-		    if (machine_endian == ENDIAN_BIG) (void) ReverseBytesInArray(&dum_float, sizeof(dum_float));
-		    byte_inframe+=4;
-		    if (print_col[i]) printf("%f ", dum_float);
+                    nitems = fread(&dum_float, sizeof(dum_float), 1, infile);
+		    if (nitems) {
+		       if (machine_endian == ENDIAN_BIG) (void) ReverseBytesInArray(&dum_float, sizeof(dum_float));
+		       byte_inframe+=4;
+		       if (print_col[i]) printf("%f ", dum_float);
+		    }
 		    break;
                  case TOB_IEEE4B:
-                    fread(&dum_float, sizeof(dum_float), 1, infile);
-		    if (machine_endian == ENDIAN_LITTLE) (void) ReverseBytesInArray(&dum_float, sizeof(dum_float));
-		    byte_inframe+=4;
-		    if (print_col[i]) printf("%f ", dum_float);
+                    nitems = fread(&dum_float, sizeof(dum_float), 1, infile);
+		    if (nitems) {
+		       printf("ieee4b nitems = %i\n", nitems);
+		       if (machine_endian == ENDIAN_LITTLE) (void) ReverseBytesInArray(&dum_float, sizeof(dum_float));
+		       byte_inframe+=4;
+		       if (print_col[i]) printf("%f ", dum_float);
+		    }
 		    break;
                  case TOB_FP2:
-                    fread(two_char, sizeof(two_char[0]), 2, infile);
-		    byte_inframe+=2;
-                    dum_float = conv_two_byte(two_char);
-		    if (print_col[i]) printf("%f ", dum_float);
+                    nitems = fread(two_char, sizeof(two_char[0]), 2, infile);
+		    if (nitems) {
+		       byte_inframe+=2;
+                       dum_float = conv_two_byte(two_char);
+		       if (print_col[i]) printf("%f ", dum_float);
+		    }
 		    break;
 		 default:
                     break;
               }
+	    }
+	    if (nitems)  printf(" \n");
            }
-	   printf(" \n");
 
 	   /* Update time */
 	   subseconds += samp_interval;
