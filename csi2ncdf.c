@@ -140,7 +140,9 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  maincond_def start_cond,
                  maincond_def stop_cond,
                  boolean sloppy, int inftype, boolean txtfile, boolean fake,
-		 boolean print_col[MAXCOL], int skip_lines, int filenum)
+		 boolean print_col[MAXCOL], int skip_lines, int filenum,
+		 boolean *start_data, boolean *stop_data, boolean *fake_did_start_output,
+		 column_def coldef[MAXCOL], int *numcoldef)
 
 {
     /*
@@ -155,46 +157,46 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      double  value, txtdata[MAXCOL];
      size_t  count[2], start[2];
      int     array_id,   i,   j,   num_bytes, curr_byte, timcol, rest_byte;
-     int     linenum, colnum, status,  numcoldef;
+     int     linenum, colnum, status;
      int     wanted_data, ncol, def_array_id, l_index, l_curr_index;
      int     ndummy;
      char    *printline = NULL  , dumstring[100];
-     boolean have_start, have_stop, start_data, stop_data, end_txtline,
-             valid_sample, fake_did_start_output;
-     column_def
-         coldef[MAXCOL];
-
+     boolean have_start, have_stop, end_txtline,
+             valid_sample;
 
            
     /* ....................................................................
      */
     /* (1) Read definition of columns from format file */
-    numcoldef = 0;
-    if    ((!list_line) && (filenum == 0))
-      def_nc_file(ncid, formfile, coldef,   &numcoldef,   (int)   MAXCOL);
+    if    ((!list_line) && (filenum == 0)) {
+      *numcoldef = 0;
+      def_nc_file(ncid, formfile, coldef,   numcoldef,   (int)   MAXCOL);
+    }
 
     /* (2) Initialize */
-    fake_did_start_output = FALSE;
     linenum=0;
     colnum=0;
     array_id = -1;
     have_start = (start_cond.cond_text != NULL);
     have_stop = (stop_cond.cond_text != NULL);
-    if (have_start)
-       start_data = FALSE;
-    else 
-       start_data = FALSE;
-    if (have_stop)
-       stop_data = FALSE;
-    else 
-       stop_data = FALSE;
+    if (filenum == 0) {
+       *fake_did_start_output = FALSE;
+       if (have_start)
+          *start_data = FALSE;
+       else 
+          *start_data = FALSE;
+       if (have_stop)
+          *stop_data = FALSE;
+       else 
+          *stop_data = FALSE;
+    }
     if (fake) {
        if (list_line)
           def_array_id = 0;
        else 
           def_array_id = coldef[0].array_id;
     }
-    for (i=0; i < numcoldef; i++)
+    for (i=0; i < *numcoldef; i++)
        coldef[i].got_val = FALSE;
 
     // Skip lines in text file
@@ -208,10 +210,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
     curr_byte = 0;
     num_bytes = 0;
     ndummy = 0;
-    while ((!stop_data) &&
-           (!list_line && !feof(infile)) ||
-           ((linenum <= list_line)   &&   !feof(infile))   ||
-            (((list_line == -1) && !feof(infile)))) {
+    while (!*stop_data &&
+           ((!list_line && !feof(infile)) ||
+            ((linenum <= list_line)   &&   !feof(infile))   ||
+            ((list_line == -1) && !feof(infile)))) {
 
        rest_byte = num_bytes - curr_byte;
 
@@ -241,20 +243,20 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                of a 4 byte word, bad luck */
 	 }
 	    
-            while ((!txtfile && (!stop_data && (curr_byte < num_bytes-2))) ||
-	           ( txtfile && (!stop_data && !end_txtline))) {
+            while ((!txtfile && (!*stop_data && (curr_byte < num_bytes-2))) ||
+	           ( txtfile && (!*stop_data && !end_txtline))) {
                /* (3.2.1) Determine type of byte read */
 	      if (txtfile) {
                   if (colnum == 0) {
-		     if (fake && fake_did_start_output) 
+		     if (fake && *fake_did_start_output) 
 	                myswitch = TXT_VALUE;
 		     else {
 	                myswitch = START_OUTPUT;
-		        fake_did_start_output = TRUE;
+		        *fake_did_start_output = TRUE;
 		     }
 		  } else {
 	             myswitch = TXT_VALUE;
-		     fake_did_start_output = FALSE;
+		     *fake_did_start_output = FALSE;
 		  }
 	      } else
                   myswitch = bytetype((data+curr_byte));
@@ -333,18 +335,18 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      wanted_data = all_cond(loc_cond, n_cond);
                      if (array_id > 0) {
                        if (have_start)
-                          start_data = (start_data || all_cond(&start_cond, 1));
+                          *start_data = (*start_data || all_cond(&start_cond, 1));
                        else
-                          start_data = TRUE;
+                          *start_data = TRUE;
                      }
                      if (array_id > 0) {
                         if (have_stop)
-                           stop_data = all_cond(&stop_cond, 1);
+                           *stop_data = all_cond(&stop_cond, 1);
                      } else
-                        stop_data = FALSE;
+                        *stop_data = FALSE;
                         
                      if (printline) {
-                       if (((have_start && start_data) && wanted_data) ||
+                       if (((have_start && *start_data) && wanted_data) ||
                            (!have_start && wanted_data))
                            printf("%s\n", printline);
                        free(printline);
@@ -354,7 +356,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 		     /* Make sure that arrays of give array_id are
 		      * synchronized */
 		     if (sloppy) {
-                       for (i=0; i < numcoldef; i++) {
+                       for (i=0; i < *numcoldef; i++) {
                          if (coldef[i].array_id == array_id) {
                            if (!coldef[i].got_val) { 
                              if (coldef[i].missing_value == NO_VALUE) {
@@ -395,13 +397,13 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                          }
 		       }
                      }
-                     for (i=0; i < numcoldef; i++) {
+                     for (i=0; i < *numcoldef; i++) {
                        if (coldef[i].array_id == array_id) {
 			 l_index = coldef[i].index;
 			 l_curr_index = coldef[i].curr_index;
 		       }
 		     }
-                     for (i=0; i < numcoldef; i++) {
+                     for (i=0; i < *numcoldef; i++) {
                        if (coldef[i].array_id == array_id) {
                           if ((l_index != coldef[i].index) ||
                               (l_curr_index != coldef[i].curr_index)) {
@@ -413,23 +415,23 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      /* If data were not wanted, skip one line back in
                       * storage array (only for those arrays where we got
                         data !! */
-                     if (((have_start && !start_data) ||
+                     if (((have_start && !*start_data) ||
                           !wanted_data ||
-                          (have_stop && stop_data)
+                          (have_stop && *stop_data)
                          ) && !list_line)
-                       for (i=0; i < numcoldef; i++) {
+                       for (i=0; i < *numcoldef; i++) {
                           if (coldef[i].got_val) {
                              (coldef[i].index)--;
                              (coldef[i].curr_index)--;
                           }
                        }
                      /* Reset info whether we got a value */
-                     for (i=0; i < numcoldef; i++)
+                     for (i=0; i < *numcoldef; i++)
                         coldef[i].got_val = FALSE;
                
                    /* First check if array is full; if so, dump data to
                     * file */
-                   for (i=0; i < numcoldef; i++)
+                   for (i=0; i < *numcoldef; i++)
                    if (coldef[i].curr_index == MAX_SAMPLES)   {
                       start[0]=coldef[i].first_index;
                       start[1]=0;
@@ -517,7 +519,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
             
             /* (3.2.2) Put sample in appropriate array */
             if   (!list_line && valid_sample) {
-               for   (i=0;   i<   numcoldef; i++) {
+               for   (i=0;   i<   *numcoldef; i++) {
 
                 /*  Either:
                  *  - correct array_id and column number, or
@@ -627,7 +629,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
        first handle conditions of previous ArrayID */
     wanted_data = all_cond(loc_cond, n_cond);
     if (printline) {
-      if (((have_start && start_data) && wanted_data) ||
+      if (((have_start && *start_data) && wanted_data) ||
           (!have_start && wanted_data))
          printf("%s\n", printline);
       free(printline);
@@ -638,10 +640,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
     /* If data were not wanted, skip one line back in
      * storage array */
     if ((!wanted_data && !list_line) ||
-        ((have_start && !start_data) && !list_line) ||
-        ((have_stop && stop_data) && !list_line)
+        ((have_start && !*start_data) && !list_line) ||
+        ((have_stop && *stop_data) && !list_line)
        )
-      for (i=0; i < numcoldef; i++) {
+      for (i=0; i < *numcoldef; i++) {
          if (coldef[i].got_val) {
             (coldef[i].index)--;
             (coldef[i].curr_index)--;
@@ -650,7 +652,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 
     /* (4) Dump the remains of the data samples to file */
     if (!list_line) {
-        for (i=0 ; i<numcoldef; i++)   {
+        for (i=0 ; i<*numcoldef; i++)   {
             start[0]=coldef[i].first_index;
             start[1]=0;
             count[0]=coldef[i].index   - coldef[i].first_index;
@@ -707,6 +709,10 @@ int main(int argc, char   *argv[])
         start_cond;
     maincond_def
         stop_cond;
+    boolean
+        start_data, stop_data, fake_did_start_output;
+    column_def coldef[MAXCOL];
+    int numcoldef;
         
         
     /* ....................................................................
@@ -943,7 +949,6 @@ int main(int argc, char   *argv[])
           error(mess, (int) FILE_NOT_FOUND);
        }
 
-
        /* (4.3.2) Do conversion */
        if ((inftype == FTYPE_TOB1) || (inftype == FTYPE_TOB2) ||  (inftype == FTYPE_TOB3))
           do_conv_tob(infile, ncid, formfile, list_line, print_col, inftype, conv_tob1_time);
@@ -952,7 +957,7 @@ int main(int argc, char   *argv[])
        else
           do_conv_csi(infile,   ncid,   formfile, list_line,
                 loc_cond, n_cond, start_cond, stop_cond, sloppy,inftype, 
-		txtfile, fake, print_col, skip_lines, i);
+		txtfile, fake, print_col, skip_lines, i, &start_data, &stop_data, &fake_did_start_output, coldef, &numcoldef);
 
        /* (4.3.3) Close input file */
        fclose(infile);

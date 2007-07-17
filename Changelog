@@ -1,9 +1,13 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.22: 2007-07-17 (arnold.moene@wur.nl)
+* now also conditions work on input from multiple files (including CSI binary)
+* fixed bug decision to continue reading or not (caused me a seg fault, why did nobody have this problem before?)
 Version 2.2.21: 2007-07-16 (arnold.moene@wur.nl)
 * fixed error in writing TOB1 data: it was not checked whether actually
 anything was read, but still output was produced (resulting in garbage at last
 line)
+* implemented reading from more than one input file
 Version 2.2.20: 2007-06-03 (arnold.moene@wur.nl)
 * fixed small error regarding converion of time in TOB1 file (unsigned longs
 which were not part of time columns were not printed)
