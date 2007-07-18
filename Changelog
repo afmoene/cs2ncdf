@@ -1,5 +1,8 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.23: 2007-07-18 (arnold.moene@wur.nl)
+* processing more than one file should now also for corrupt files that survive
+the sloppy switch
 Version 2.2.22: 2007-07-17 (arnold.moene@wur.nl)
 * now also conditions work on input from multiple files (including CSI binary)
 * fixed bug decision to continue reading or not (caused me a seg fault, why did nobody have this problem before?)

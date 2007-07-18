@@ -37,7 +37,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.21"
+#define CSI2NCDF_VER "2.2.23"
 
 /* ........................................................................
  *
@@ -694,7 +694,7 @@ int main(int argc, char   *argv[])
 	fake = FALSE,                     /* fake an array ID */
         conv_tob1_time = FALSE;           /* convert first two columns of TOB1 to normal time info */
     int
-        i,
+        i, n,
         colnum,
         status,
         list_line   = 0,
@@ -713,6 +713,7 @@ int main(int argc, char   *argv[])
         start_data, stop_data, fake_did_start_output;
     column_def coldef[MAXCOL];
     int numcoldef;
+    int max_index, max_curr_index;
         
         
     /* ....................................................................
@@ -947,6 +948,35 @@ int main(int argc, char   *argv[])
        if (infile  == NULL) {
           sprintf(mess,   "cannot open file %s for reading.\n", infname[i]);
           error(mess, (int) FILE_NOT_FOUND);
+       }
+
+       if (i > 0) {
+           max_index = 0;
+           max_curr_index = 0;
+           for (n = 0; n < numcoldef; n++) {
+               max_index = (coldef[n].index > max_index ? coldef[n].index : max_index);
+               max_curr_index = (coldef[n].curr_index > max_curr_index ? coldef[n].curr_index : max_curr_index);
+           }
+           for (n = 0; n < numcoldef; n++) {
+	       if (coldef[n].index != max_index) {
+		   if (sloppy) {
+                      printf("warning: data of file %s not in sync for variable %s, synced because of sloppy flag\n", infname[i-1], coldef[i].name);
+                      coldef[n].index = max_index;
+		   } else  {
+                      printf("error: data of file # %s not in sync for variable %s\n", infname[i-1], coldef[i].name);
+		      error("last file was corrupt",-1);
+		   }
+	       }
+	       if (coldef[n].curr_index != max_curr_index) {
+		   if (sloppy) {
+                      printf("warning: data of file %s not in sync for variable %s, synced because of sloppy flag\n", infname[i-1], coldef[i].name);
+                      coldef[n].curr_index = max_curr_index;
+		   } else  {
+                      printf("error: data of file # %s not in sync for variable %s\n", infname[i-1], coldef[i].name);
+		      error("last file was corrupt",-1);
+		   }
+	       }
+           }
        }
 
        /* (4.3.2) Do conversion */
