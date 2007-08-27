@@ -1,5 +1,11 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.24: 2007-08-27 (arnold.moene@wur.nl)
+* fixed small error in warning message when indideces are reset under sloppy
+flag when more than one file is processed
+* fixed handling of follow_id (and i_am_time): they relied on data starting in
+column number 1, but now that is column 2 (at least for Campbell bindary).
+* fixed small error in formatting of error message "unkown byte pair"
 Version 2.2.23: 2007-07-18 (arnold.moene@wur.nl)
 * processing more than one file should now also for corrupt files that survive
 the sloppy switch

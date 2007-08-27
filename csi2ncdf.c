@@ -37,7 +37,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.23"
+#define CSI2NCDF_VER "2.2.24"
 
 /* ........................................................................
  *
@@ -162,7 +162,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
      int     ndummy;
      char    *printline = NULL  , dumstring[100];
      boolean have_start, have_stop, end_txtline,
-             valid_sample;
+             valid_sample, start_of_line;
 
            
     /* ....................................................................
@@ -176,6 +176,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
     /* (2) Initialize */
     linenum=0;
     colnum=0;
+    start_of_line=FALSE;
     array_id = -1;
     have_start = (start_cond.cond_text != NULL);
     have_stop = (stop_cond.cond_text != NULL);
@@ -248,6 +249,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                /* (3.2.1) Determine type of byte read */
 	      if (txtfile) {
                   if (colnum == 0) {
+	             start_of_line = TRUE;
 		     if (fake && *fake_did_start_output) 
 	                myswitch = TXT_VALUE;
 		     else {
@@ -255,11 +257,17 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 		        *fake_did_start_output = TRUE;
 		     }
 		  } else {
+	             start_of_line = FALSE;
 	             myswitch = TXT_VALUE;
 		     *fake_did_start_output = FALSE;
 		  }
-	      } else
+	      } else {
                   myswitch = bytetype((data+curr_byte));
+		  if (colnum == 1) 
+		     start_of_line = TRUE;
+	          else
+		     start_of_line = FALSE;
+	      }
 	      valid_sample = FALSE;
 	      if ((ndummy > 0) && (myswitch != DUMMY_WORD)) {
                   printf("previous message repeated %i times \n;", ndummy);
@@ -318,7 +326,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                              status   = nc_close(ncid);
                              fclose(infile);
                              printf("line num = %i %i\n", linenum, colnum);
-                             error("unexpected byte pair in file", -1);
+                             error("unexpected byte pair in file\n", -1);
                          }
                      }
                      if ((list_line && linenum   <=   list_line) ||
@@ -525,20 +533,17 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  *  - correct array_id and column number, or
                  *  - correct array_id and column number in range
                  *    between first and last column of 2D variable, or
-                 *  - a variable that follows this array_id
-                 *  - first column and i am the time variable
+                 *  - start of line and variable that follows this array_id 
+                 *  - start of line and i am the time variable
                  */
-
                  if ((coldef[i].array_id == array_id &&
                       ((coldef[i].col_num   ==   colnum) ||
                        ((coldef[i].col_num <= colnum)   &&
                         (coldef[i].col_num +   coldef[i].ncol-1 >= colnum)
                        ))
                      ) ||
-                     ((coldef[i].follow_id   ==   array_id) &&
-                      (colnum == 1)
-                     ) ||
-                     (coldef[i].i_am_time)
+                     ((coldef[i].follow_id   ==   array_id) && (start_of_line)) ||
+                     (coldef[i].i_am_time && (start_of_line))
                     )   {
                     if (coldef[i].i_am_time   &&   
                           (coldef[i].time_got_comp == 
@@ -580,6 +585,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                       if (coldef[i].array_id == array_id)   {
                          coldef[i].follow_val[colnum-coldef[i].col_num] =
                             (double) value;
+			 coldef[i].got_val = TRUE;
                          coldef[i].got_follow_val = TRUE;
                       /* This is a line with the array_id to follow:
                        * put previously stored data in array */
@@ -960,7 +966,7 @@ int main(int argc, char   *argv[])
            for (n = 0; n < numcoldef; n++) {
 	       if (coldef[n].index != max_index) {
 		   if (sloppy) {
-                      printf("warning: data of file %s not in sync for variable %s, synced because of sloppy flag\n", infname[i-1], coldef[i].name);
+                      printf("warning: data of file %s not in sync for variable %s, synced because of sloppy flag\n", infname[i-1], coldef[n].name);
                       coldef[n].index = max_index;
 		   } else  {
                       printf("error: data of file # %s not in sync for variable %s\n", infname[i-1], coldef[i].name);
@@ -969,7 +975,7 @@ int main(int argc, char   *argv[])
 	       }
 	       if (coldef[n].curr_index != max_curr_index) {
 		   if (sloppy) {
-                      printf("warning: data of file %s not in sync for variable %s, synced because of sloppy flag\n", infname[i-1], coldef[i].name);
+                      printf("warning: data of file %s not in sync for variable %s, synced because of sloppy flag\n", infname[i-1], coldef[n].name);
                       coldef[n].curr_index = max_curr_index;
 		   } else  {
                       printf("error: data of file # %s not in sync for variable %s\n", infname[i-1], coldef[i].name);
