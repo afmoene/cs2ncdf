@@ -428,7 +428,13 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                           (have_stop && *stop_data)
                          ) && !list_line)
                        for (i=0; i < *numcoldef; i++) {
-                          if (coldef[i].got_val) {
+			  /* 1. There is a value and
+			   * 2a. Either it is not a following variable and has the current array_id
+			   * 2b. Or it is a following variable and has the current array_id as follow_id
+			   */
+                          if ((coldef[i].got_val) && 
+			      (((coldef[i].follow_id == -1) && (coldef[i].array_id == array_id)) || 
+			       (coldef[i].follow_id == array_id)))  {
                              (coldef[i].index)--;
                              (coldef[i].curr_index)--;
                           }
@@ -591,12 +597,14 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                        * put previously stored data in array */
                       } else {
                           if (coldef[i].got_follow_val) {
-                            for (j=0; j<coldef[i].ncol; j++)
+                            for (j=0; j<coldef[i].ncol; j++) {
                                 coldef[i].values[(coldef[i].ncol)*
                                                  coldef[i].curr_index+j]
                                    = coldef[i].follow_val[j];
+			    }
 	                    (coldef[i].index)++;
                             (coldef[i].curr_index)++;
+
                             coldef[i].got_val = TRUE;
                             if (coldef[i].follow_missed) {
                                printf("warning: did not have data for following variable %s on %i lines\n",

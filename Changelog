@@ -1,5 +1,10 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.25: 2007-08-31 (arnold.moene@wur.nl)
+* fixed bug in handling of follow_id in combination with start condition: if
+data not wanted because condition not valid, data were not discarded in the
+correct way.
+* set optimization in Makefile to -O
 Version 2.2.24: 2007-08-27 (arnold.moene@wur.nl)
 * fixed small error in warning message when indideces are reset under sloppy
 flag when more than one file is processed
