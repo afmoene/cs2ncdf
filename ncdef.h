@@ -662,11 +662,18 @@ boolean
 	      /* Missing value */
 	      (*(coldef+*numcoldef)).missing_value = missing_value;
 	      /* Make room for floats (conversions handled by netcdf */
-         (*(coldef+*numcoldef)).values =
+              (*(coldef+*numcoldef)).values =
 	           (double *) malloc(sizeof(double)*MAX_SAMPLES*
 	                     (*(coldef+*numcoldef)).ncol);
 	      /* Array Id to follow (faster changing) */
-         (*(coldef+*numcoldef)).follow_id = follow_id;
+              (*(coldef+*numcoldef)).follow_id = follow_id;
+
+	      /* Initialize counters */
+	      (*(coldef+*numcoldef)).index = 0;
+	      (*(coldef+*numcoldef)).curr_index = 0;
+	      (*(coldef+*numcoldef)).first_index = 0;
+	      (*(coldef+*numcoldef)).follow_missed = 0;
+
          if (follow_id > 0)
              (*(coldef+*numcoldef)).got_follow_val = FALSE;
 	      

@@ -1,5 +1,7 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.26: 2008-04-08 (arnold.moene@wur.nl)
+* moved initialization of numcoldef (gave segfault when listing data)
 Version 2.2.25: 2007-08-31 (arnold.moene@wur.nl)
 * fixed bug in handling of follow_id in combination with start condition: if
 data not wanted because condition not valid, data were not discarded in the

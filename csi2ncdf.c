@@ -168,8 +168,8 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
     /* ....................................................................
      */
     /* (1) Read definition of columns from format file */
+    *numcoldef = 0;
     if    ((!list_line) && (filenum == 0)) {
-      *numcoldef = 0;
       def_nc_file(ncid, formfile, coldef,   numcoldef,   (int)   MAXCOL);
     }
 
@@ -531,6 +531,20 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
             if (have_stop)
               check_cond(&stop_cond, 1, array_id, colnum, value);
             
+
+	    /* Do the time coordinate if we are at the start of a new line */
+	    if (start_of_line) {
+               for   (i=0;   i<   *numcoldef; i++) {
+                    if (coldef[i].i_am_time   &&   
+                          (coldef[i].time_got_comp == 
+                           coldef[i].time_num_comp)) {
+                       coldef[i].curr_index++;
+                       coldef[i].index++;
+                       coldef[i].got_val = TRUE;
+                       coldef[i].time_got_comp   = 0;
+                    }
+               }
+	    }
             /* (3.2.2) Put sample in appropriate array */
             if   (!list_line && valid_sample) {
                for   (i=0;   i<   *numcoldef; i++) {
@@ -542,6 +556,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  *  - start of line and variable that follows this array_id 
                  *  - start of line and i am the time variable
                  */
+    printf("numcoldef = %i %i %i %i %i %i\n", *numcoldef, coldef[i].i_am_time ,coldef[i].time_got_comp, coldef[i].time_num_comp, ncol, start_of_line);
                  if ((coldef[i].array_id == array_id &&
                       ((coldef[i].col_num   ==   colnum) ||
                        ((coldef[i].col_num <= colnum)   &&
@@ -551,14 +566,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      ((coldef[i].follow_id   ==   array_id) && (start_of_line)) ||
                      (coldef[i].i_am_time && (start_of_line))
                     )   {
-                    if (coldef[i].i_am_time   &&   
-                          (coldef[i].time_got_comp == 
-                           coldef[i].time_num_comp)) {
-                       coldef[i].curr_index++;
-                       coldef[i].index++;
-                       coldef[i].got_val = TRUE;
-                       coldef[i].time_got_comp   = 0;
-                    }
+ 
 
 
                    /* Add data sample to array */
@@ -649,6 +657,18 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
       free(printline);
       printline = NULL;
     }
+
+    /* Finish the time coordinate */
+    for   (i=0;   i<   *numcoldef; i++) {
+           if (coldef[i].i_am_time   &&   
+                          (coldef[i].time_got_comp == 
+                           coldef[i].time_num_comp)) {
+                       coldef[i].curr_index++;
+                       coldef[i].index++;
+                       coldef[i].got_val = TRUE;
+                       coldef[i].time_got_comp   = 0;
+           }
+     }
 
 
     /* If data were not wanted, skip one line back in
