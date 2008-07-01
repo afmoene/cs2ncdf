@@ -556,7 +556,6 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  *  - start of line and variable that follows this array_id 
                  *  - start of line and i am the time variable
                  */
-    printf("numcoldef = %i %i %i %i %i %i\n", *numcoldef, coldef[i].i_am_time ,coldef[i].time_got_comp, coldef[i].time_num_comp, ncol, start_of_line);
                  if ((coldef[i].array_id == array_id &&
                       ((coldef[i].col_num   ==   colnum) ||
                        ((coldef[i].col_num <= colnum)   &&

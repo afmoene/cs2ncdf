@@ -320,7 +320,6 @@ boolean
     strncpy(linecopy, line, (size_t) pos+1);
 
     /* line should be freed, but get SIGABORT so, just leave it  ? */
-    
     free(line);
     
     if (!strlen(linecopy)) return 0;
@@ -409,6 +408,7 @@ boolean
          *time_csi_hm = TRUE;
     
 
+    
     /* (4)  Global attributes */
     /* (4.1)  Title attribute */
     if (get_string(linecopy, "title", "title", dumstring)) {
@@ -529,7 +529,6 @@ boolean
                      &globaldef, timename, &ncol, dimname,
           		      &follow_id, &time_comp, &time_csi_hm,
 		               &time_mult, &time_offset)) {
-
 	  /* 2.2.1) This is a time coordinate definition */
 	  if (strlen(timename)) {
               /* Check whether a time coordinate was defined already for
@@ -720,19 +719,19 @@ boolean
     
     if (num_time_comp) {
       /* Define name */
-      if (strlen(name)) {
+      if (strlen(timedef.name)) {
          (*(coldef+*numcoldef)).name = get_clearstring(strlen(timedef.name));
          strcpy((*(coldef+*numcoldef)).name, timedef.name);
       } else
         (*(coldef+*numcoldef)).name = NULL;
       /* Define units */
-      if (strlen(unit)) {
+      if (timedef.unit) {
          (*(coldef+*numcoldef)).unit = get_clearstring(strlen(timedef.unit));
          strcpy((*(coldef+*numcoldef)).unit, timedef.unit);
-      } else
+      } else 
          (*(coldef+*numcoldef)).unit = NULL;
       /* Define long_name */
-      if (strlen(long_name)) {
+      if (timedef.long_name) {
          (*(coldef+*numcoldef)).long_name = get_clearstring(strlen(timedef.long_name));
          strcpy((*(coldef+*numcoldef)).long_name, timedef.long_name);
       } else
