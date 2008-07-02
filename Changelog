@@ -1,5 +1,9 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.28: 2008-04-02 (arnold.moene@wur.nl)
+* If conversion of number from TOA5 fails, NaN is written to stdout
+* All text output to stdout now has 10 decimal places by default (set by
+TXT_DECIMALPLACES in csi2ncdf.c)
 Version 2.2.27: 2008-04-02 (arnold.moene@wur.nl)
 * fixed problems with checks on strlen of NULL string
 * composit time variable now is NC_DOUBLE

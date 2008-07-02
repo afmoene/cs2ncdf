@@ -29,6 +29,7 @@
 
 #define MAXCOL   256
 #define MAXLINELEN   20000
+#define TXT_DECIMALPLACES 10
 #include   "ncdef.h"
 #include   "csibin.h"
 #include   "in_out.h"
@@ -37,7 +38,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.27"
+#define CSI2NCDF_VER "2.2.28"
 
 /* ........................................................................
  *
@@ -130,6 +131,12 @@ char
  *            print_col        in   which columns to print to stdout 
  *            skip_lines       in   number of lines to skip in text file
  *            filenum          in   serial number of file
+ *            .
+ *            .
+ *            .
+ *            .
+ *            .
+ *            decimal_places   in   number of decimal places in text output
  *
  * Method   : 
  * Date     : June 1999
@@ -142,7 +149,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                  boolean sloppy, int inftype, boolean txtfile, boolean fake,
 		 boolean print_col[MAXCOL], int skip_lines, int filenum,
 		 boolean *start_data, boolean *stop_data, boolean *fake_did_start_output,
-		 column_def coldef[MAXCOL], int *numcoldef)
+		 column_def coldef[MAXCOL], int *numcoldef, int decimal_places)
 
 {
     /*
@@ -311,7 +318,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      if ((list_line && linenum   <=   list_line) ||
                          (list_line == -1)) {
                          if (print_col[colnum-1]) {
-                            sprintf(dumstring, "%G ", value);
+                            sprintf(dumstring, "%.*G ", decimal_places, value);
                             if (!printline)  printline = get_clearstring(MAXLINELEN);
                             strcat(printline, dumstring);
 			 }
@@ -323,7 +330,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      if ((list_line && linenum   <=   list_line) ||
                          (list_line == -1)) {
                          if (print_col[colnum-1]) {
-                            sprintf(dumstring, "%f ", value);
+                            sprintf(dumstring, "%.*f ", decimal_places,  value);
                             strcat(printline, dumstring);
 			 }
                      }
@@ -357,7 +364,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      if ((list_line && linenum   <=   list_line) ||
                          (list_line == -1)) {
                          if (print_col[colnum-1]) {
-                            sprintf(dumstring, "%f ", value);
+                            sprintf(dumstring, "%.*f ", decimal_places,  value);
                             strcat(printline, dumstring);
                          }
                      }
@@ -760,6 +767,7 @@ int main(int argc, char   *argv[])
         n_cond = 0,
 	inftype = FTYPE_CSIBIN,
 	skip_lines = 0,
+	decimal_places = TXT_DECIMALPLACES,
 	num_infiles;
     maincond_def
         loc_cond[MAXCOND];
@@ -923,6 +931,14 @@ int main(int argc, char   *argv[])
                      error("can not skip negative number of lines\n", CMD_LINE_ERROR);
 		 break;
 
+               /* Format text output */
+               case 'd':
+                 cmd_arg(&argv, &argc,   2,   dumstring);
+		 decimal_places = atoi(dumstring);
+                 if (decimal_places < 0)
+                     error("can not use negative number of decimal places\n", CMD_LINE_ERROR);
+		 break;
+
 
                /* Invalid flag */
                default :
@@ -1039,13 +1055,13 @@ int main(int argc, char   *argv[])
 
        /* (4.3.2) Do conversion */
        if ((inftype == FTYPE_TOB1) || (inftype == FTYPE_TOB2) ||  (inftype == FTYPE_TOB3))
-          do_conv_tob(infile, ncid, formfile, list_line, print_col, inftype, conv_tob1_time);
+          do_conv_tob(infile, ncid, formfile, list_line, print_col, inftype, conv_tob1_time, decimal_places);
        else if (inftype == FTYPE_TOA5)
-          do_conv_toa(infile, ncid, formfile, list_line, print_col, inftype);
+          do_conv_toa(infile, ncid, formfile, list_line, print_col, inftype, decimal_places);
        else
           do_conv_csi(infile,   ncid,   formfile, list_line,
                 loc_cond, n_cond, start_cond, stop_cond, sloppy,inftype, 
-		txtfile, fake, print_col, skip_lines, i, &start_data, &stop_data, &fake_did_start_output, coldef, &numcoldef);
+		txtfile, fake, print_col, skip_lines, i, &start_data, &stop_data, &fake_did_start_output, coldef, &numcoldef, decimal_places);
 
        /* (4.3.3) Close input file */
        fclose(infile);

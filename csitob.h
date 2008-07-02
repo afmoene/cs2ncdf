@@ -242,11 +242,12 @@ struct tm decode_tobtime(long tobtime){
  *            print_col        in   switch which columns should be printed
  *            tob_type         in   switch for type of TOB file
  *            conv_tob1_time   in   should we convert time info in first TOB1 columns to real time ? (add extra columns in output)
+ *            decimal_places   in   number of decimal places in text output
  * Date     : December 16, 2003
  * Update   : August 28, 2006   : generalized to TOB1 and TOB3.
  * Update   : June 1, 2007      : write TOB1 time to output
  */
-void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL], int tob_type, boolean conv_tob1_time)
+void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL], int tob_type, boolean conv_tob1_time, int decimal_places)
 {
 	char buffer[MAX_STRINGLENGTH]; 
         unsigned char two_char[2];
@@ -367,7 +368,7 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
                     nitems = fread(&dum_float, sizeof(dum_float), 1, infile);
 		    if (nitems) {
 	  	       byte_inframe+=4;
-		       if (print_col[i]) printf("%f ", dum_float);
+		       if (print_col[i]) printf("%.*f ", decimal_places, dum_float);
 		    }
 		    break;
                  case TOB_IEEE4L:
@@ -375,7 +376,7 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
 		    if (nitems) {
 		       if (machine_endian == ENDIAN_BIG) (void) ReverseBytesInArray(&dum_float, sizeof(dum_float));
 		       byte_inframe+=4;
-		       if (print_col[i]) printf("%f ", dum_float);
+		       if (print_col[i]) printf("%.*f ", decimal_places,  dum_float);
 		    }
 		    break;
                  case TOB_IEEE4B:
@@ -384,7 +385,7 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
 		       printf("ieee4b nitems = %i\n", nitems);
 		       if (machine_endian == ENDIAN_LITTLE) (void) ReverseBytesInArray(&dum_float, sizeof(dum_float));
 		       byte_inframe+=4;
-		       if (print_col[i]) printf("%f ", dum_float);
+		       if (print_col[i]) printf("%.*f ", decimal_places, dum_float);
 		    }
 		    break;
                  case TOB_FP2:
@@ -392,7 +393,7 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
 		    if (nitems) {
 		       byte_inframe+=2;
                        dum_float = conv_two_byte(two_char);
-		       if (print_col[i]) printf("%f ", dum_float);
+		       if (print_col[i]) printf("%.*f ", decimal_places, dum_float);
 		    }
 		    break;
 		 default:
@@ -429,15 +430,18 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
  *                                  list
  *            print_col        in   switch which columns should be printed
  *            toa_type         in   switch for type of TOA file
+ *            decimal_places   in   number of decimal places in text output
  * Date     : October 3, 2006
  */
-void do_conv_toa(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL], int toa_type)
+void do_conv_toa(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL], int toa_type, int decimal_places)
 {
 	char *buffer, *bufferstart, dumstring2[MAX_STRINGLENGTH];
         char dumstring[MAX_STRINGLENGTH], delimiter, *pChSpace;
 	int  i, cur_line, nskip, col;
         int year, month, day, hour, min;
         float sec;
+        int valid_value;
+	double conv_value;
 
 
 	/* Allocate buffer and retain original start to reset pointer location later */
@@ -525,7 +529,13 @@ void do_conv_toa(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
 
                        printf("%i %i %04i %f ", year, daynumber(year, month, day),  hour*100+min, sec);
                    }
-                   if (col>0 && print_col[col]) printf("%f ",  atof(dumstring));
+                   if (col>0 && print_col[col]) {
+			   valid_value = sscanf(dumstring, "%lg", &conv_value);
+			   if (valid_value)
+				   printf("%.*lg ", decimal_places,  conv_value);
+			   else
+				   printf("NaN ");
+	           }
                    buffer = buffer + i ;
                    col++;
               }
