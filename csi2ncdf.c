@@ -37,7 +37,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.26"
+#define CSI2NCDF_VER "2.2.27"
 
 /* ........................................................................
  *
@@ -281,8 +281,33 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      }
 		     if (colnum ==  ncol)
 			     end_txtline = TRUE;
-
-	             value = txtdata[colnum-1];
+		     /* if it is read incorrectly th egeneric flag NO_VALUE is used */
+		     if (txtdata[colnum-1] == NO_VALUE) {
+                             if (coldef[colnum-1].missing_value == NO_VALUE) {
+	    	               switch(coldef[colnum-1].nc_type)
+	  	               {
+	  		         case NC_BYTE:
+	  	                    value = (double) NC_FILL_BYTE;
+                                    break;
+	  		         case NC_CHAR:
+	  	                    value = (double) NC_FILL_CHAR;
+                                    break;
+	  		         case NC_INT:
+	  		            value = (double) NC_FILL_INT;
+                                    break;
+	  		         case NC_SHORT:
+	  		            value = (double) NC_FILL_SHORT;
+                                    break;
+	  		         case NC_FLOAT:
+	  		             value = (double) NC_FILL_FLOAT;
+                                     break;
+	  		         case NC_DOUBLE:
+	     	  	             value = (double) NC_FILL_DOUBLE;
+                                     break;
+                               }
+			     }
+		     } else
+	                  value = txtdata[colnum-1];
                      if ((list_line && linenum   <=   list_line) ||
                          (list_line == -1)) {
                          if (print_col[colnum-1]) {

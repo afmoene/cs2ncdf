@@ -15,6 +15,7 @@ LAR=ar
 LRANLIB=ranlib
 LINCDIR='-I/usr/include -I$(LIBSRC)/'
 LLIBDIR=-L/usr/lib
+NETCDF_INCLUDE='-I/usr/include/netcdf-3'
 
 # For MingW
 BUILD-WIN32=build-win32

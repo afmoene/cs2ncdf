@@ -444,6 +444,7 @@ boolean
          error("does not make sense to define time_offset, when not defining time_mult",-1);
      }
 
+     /* Did we have success or not */
      if (id_found || col_found || name_found || unit_found) {
         if ((id_found && col_found && name_found && unit_found) ||
 	    (id_found && time_found))
@@ -737,7 +738,7 @@ boolean
       } else
          (*(coldef+*numcoldef)).long_name = NULL;
       /* Define netcdf type */
-      (*(coldef+*numcoldef)).nc_type = NC_FLOAT;
+      (*(coldef+*numcoldef)).nc_type = NC_DOUBLE;
       /* Define time dimension */
       (*(coldef+*numcoldef)).nc_dim[0] = timedef.nc_dim;
       /* Define number of columns */
@@ -921,8 +922,9 @@ boolean
  */
 void txtdecode(char* s, double *txtdata, 
                 int inftype, int *ncol) {
-   int i, col;
+   int i, col, nvalues;
    char dumstring[MAX_STRINGLENGTH], delimiter, *pChSpace;
+   double conv_value;
 
    // Set separator
    if (inftype == FTYPE_TXTCSV) {
@@ -960,7 +962,11 @@ void txtdecode(char* s, double *txtdata,
 
        // Check if this really can be a number; it might be end of line!
        if (isprint(dumstring[i-1])) {
-          txtdata[col] = atof(dumstring);
+	  nvalues = sscanf(dumstring, "%lg", &conv_value);
+	  if (nvalues == 0)
+	     txtdata[col] = NO_VALUE;
+	  else
+	     txtdata[col] = conv_value;
           s = s + i ;
           col++;
        }

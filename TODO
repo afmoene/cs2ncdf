@@ -5,8 +5,4 @@ Apparent bug:
 * input ASCII file without ArrayID. -b condition does not work if fake arrayID in configuration file is set to 0 (zero). A -c condition *does* work.
 * when using text input (from TOB1 output) with stop condition: reading does not stop (Bram)
 
-Todo:
-* if decoding of text fails for a certain number store the MISSING_VALUE value, rather than 0 or NaN
-* make the extra time coordinate (constructed with time_mult) a double, rather then a float.
-
 

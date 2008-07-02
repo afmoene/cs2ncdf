@@ -1,5 +1,11 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.27: 2008-04-02 (arnold.moene@wur.nl)
+* fixed problems with checks on strlen of NULL string
+* composit time variable now is NC_DOUBLE
+* if conversion from text to number failed, missing value code is written to
+data
+* if no missing value code is given, the default NetCDF fill values are used
 Version 2.2.26: 2008-04-08 (arnold.moene@wur.nl)
 * moved initialization of numcoldef (gave segfault when listing data)
 Version 2.2.25: 2007-08-31 (arnold.moene@wur.nl)
