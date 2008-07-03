@@ -1,5 +1,12 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.29: 2008-04-03 (arnold.moene@wur.nl)
+* Now fill data from ASCII that are not correctly read to the right missing
+value code
+* Missing values codes were not correctly communicated to data with an extra
+coordinate (fixed)
+* To fix the previous, I also introduced a reverse lookup table to link
+columns in input data to variable definitions in output
 Version 2.2.28: 2008-04-02 (arnold.moene@wur.nl)
 * If conversion of number from TOA5 fails, NaN is written to stdout
 * All text output to stdout now has 10 decimal places by default (set by

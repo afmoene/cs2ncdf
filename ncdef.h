@@ -95,6 +95,9 @@ typedef struct {
   char *long_name;
 } time_def;
 
+// reverse lookup table that tells for a given column in the input, which variable definition 
+// belongs to it
+int col2vardef[MAXCOL];
 
 /* Get a sting from between quotes */
 char *quoted_string(char *string) {
@@ -502,6 +505,7 @@ boolean
     globaldef.title = NULL;
     globaldef.history = NULL;
     globaldef.remark = NULL;
+    for (i=0;i<MAXCOL;i++) col2vardef[i]=-1;
 
     /* (2) Loop format file */
     while (!feof(formfile)) {
@@ -583,6 +587,7 @@ boolean
 	      (*(coldef+*numcoldef)).array_id = arrayid;
 	      /* Define column number */
 	      (*(coldef+*numcoldef)).col_num = column;
+
 	      /* Define name */
               if (strlen(name)) {
   	         (*(coldef+*numcoldef)).name = get_clearstring(strlen(name));
@@ -615,6 +620,10 @@ boolean
 
               /* number of columns */
               (*(coldef+*numcoldef)).ncol = ncol;
+	      /* make reverse lookup table */
+	      for (i=column-1;i<column-1+ncol;i++) 
+	          col2vardef[i]=*numcoldef;
+
               if (ncol > 1) {
                  /* First check whether this dimensions exists already */
                  status = nc_inq_ndims(ncid, &numdims);

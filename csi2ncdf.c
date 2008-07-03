@@ -38,7 +38,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.28"
+#define CSI2NCDF_VER "2.2.29"
 
 /* ........................................................................
  *
@@ -290,8 +290,8 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 			     end_txtline = TRUE;
 		     /* if it is read incorrectly th egeneric flag NO_VALUE is used */
 		     if (txtdata[colnum-1] == NO_VALUE) {
-                             if (coldef[colnum-1].missing_value == NO_VALUE) {
-	    	               switch(coldef[colnum-1].nc_type)
+                             if (coldef[col2vardef[colnum-1]].missing_value == NO_VALUE) {
+	    	               switch(coldef[col2vardef[colnum-1]].nc_type)
 	  	               {
 	  		         case NC_BYTE:
 	  	                    value = (double) NC_FILL_BYTE;
@@ -312,7 +312,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 	     	  	             value = (double) NC_FILL_DOUBLE;
                                      break;
                                }
-			     }
+			     } else {
+			       value = coldef[col2vardef[colnum-1]].missing_value;
+		             }
+
 		     } else
 	                  value = txtdata[colnum-1];
                      if ((list_line && linenum   <=   list_line) ||
@@ -1126,6 +1129,7 @@ void info(boolean usage)
         printf("                    but assume that all lines have the same ID, which is taken \n");
         printf("                    from the first definition in the format file; only needed when\n");
         printf("                    writing a netcdf file. If listing to stdout, arrayID is set to 0\n");
+        printf(" -d dec_places    : number of decimal places in text output to standard output\n");
         printf(" -x skip_lines    : number of lines to skip in input text file\n");
         printf(" -h               : displays usage\n");
 	printf("Version: %s\n", CSI2NCDF_VER);
