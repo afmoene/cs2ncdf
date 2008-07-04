@@ -1,5 +1,8 @@
 $Id$
 Changelog for csi2ncdf
+Version 2.2.29: 2008-04-04 (arnold.moene@wur.nl)
+* fixed bug related to handling of composite time seg faults due to writing
+beyond array bounds)
 Version 2.2.29: 2008-04-03 (arnold.moene@wur.nl)
 * Now fill data from ASCII that are not correctly read to the right missing
 value code

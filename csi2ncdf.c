@@ -27,7 +27,7 @@
 
 #include   "netcdf.h"
 
-#define MAXCOL   256
+#define MAXCOL   1024
 #define MAXLINELEN   20000
 #define TXT_DECIMALPLACES 10
 #include   "ncdef.h"
@@ -38,7 +38,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.29"
+#define CSI2NCDF_VER "2.2.30"
 
 /* ........................................................................
  *
@@ -395,7 +395,6 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                        free(printline);
                        printline = NULL;
                      }
-
 		     /* Make sure that arrays of give array_id are
 		      * synchronized */
 		     if (sloppy) {
@@ -478,8 +477,22 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      for (i=0; i < *numcoldef; i++)
                         coldef[i].got_val = FALSE;
                
+	    /* Do the time coordinate if we are at the start of a new line */
+	    if (start_of_line) {
+               for   (i=0;   i<   *numcoldef; i++) {
+                    if (coldef[i].i_am_time   &&   
+                          (coldef[i].time_got_comp == 
+                           coldef[i].time_num_comp)) {
+                       coldef[i].curr_index++;
+                       coldef[i].index++;
+                       coldef[i].got_val = TRUE;
+                       coldef[i].time_got_comp   = 0;
+                    }
+               }
+	    }
                    /* First check if array is full; if so, dump data to
-                    * file */
+                    * file (curr_index is where we are going to put the data; it it is MAX_SAMPLES, we would
+		    * write beyond the storage */
                    for (i=0; i < *numcoldef; i++)
                    if (coldef[i].curr_index == MAX_SAMPLES)   {
                       start[0]=coldef[i].first_index;
@@ -495,7 +508,8 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                       coldef[i].curr_index=0;
                       if (status   !=   NC_NOERR) 
                          nc_handle_error(status);
-                   }
+		      if (coldef[i].i_am_time) coldef[i].time_got_comp = 0 ;
+                     }
 
                      /* Now start handling of new data */
 		     if (fake)
@@ -565,21 +579,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
               check_cond(&start_cond, 1, array_id, colnum, value);
             if (have_stop)
               check_cond(&stop_cond, 1, array_id, colnum, value);
-            
 
-	    /* Do the time coordinate if we are at the start of a new line */
-	    if (start_of_line) {
-               for   (i=0;   i<   *numcoldef; i++) {
-                    if (coldef[i].i_am_time   &&   
-                          (coldef[i].time_got_comp == 
-                           coldef[i].time_num_comp)) {
-                       coldef[i].curr_index++;
-                       coldef[i].index++;
-                       coldef[i].got_val = TRUE;
-                       coldef[i].time_got_comp   = 0;
-                    }
-               }
-	    }
             /* (3.2.2) Put sample in appropriate array */
             if   (!list_line && valid_sample) {
                for   (i=0;   i<   *numcoldef; i++) {
@@ -622,7 +622,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                              if (coldef[timcol].time_got_comp   ==   0)
                                  coldef[timcol].values[coldef[timcol].curr_index] =   0.0;
                              coldef[timcol].values[coldef[timcol].curr_index]+=
-                               (value-coldef[i].time_offset)*coldef[i].time_mult;
+                                 (value-coldef[i].time_offset)*coldef[i].time_mult;
                              coldef[timcol].time_got_comp++;
                           }
                        }
@@ -729,7 +729,7 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
             status   = nc_put_vara_double(ncid, coldef[i].nc_var,
                                          start, count, coldef[i].values);
             if (status != NC_NOERR)
-                 nc_handle_error(status);
+                nc_handle_error(status);
         }
     }
 }
