@@ -52,6 +52,7 @@ typedef struct {
   float valid_min;
   float valid_max;
   float missing_value;
+  double FillValue;
   float time_mult;
   float time_offset;
   double *values;
@@ -182,6 +183,28 @@ boolean get_float(char *line, const char *token, const char *name, float *value)
   return FALSE;
 }
 
+boolean get_double(char *line, const char *token, const char *name, double *value) {
+
+  char *stringp;
+  char mess[MAX_STRINGLENGTH];
+  char dumstring[MAX_STRINGLENGTH];
+  int  status;
+
+  if ( (stringp = strstr(line, token)) ) {
+        if ( (stringp = non_space(stringp, token, '=')) ) {
+           status = sscanf(stringp, "%s", dumstring);
+           *value = atof(dumstring);
+           if (status != 1) {
+              sprintf(mess, "could not convert %s\n", name);
+              error(mess, -1);
+              return FALSE;
+           } else
+              return TRUE;
+        }
+  }
+  return FALSE;
+}
+
 
 
 boolean get_string(char *line, const char *token, 
@@ -229,6 +252,7 @@ char *get_clearstring(num) {
  *            valid_min        out  valid minimum value
  *            valid_max        out  valid maximum value
  *            missing_value    out  value signifying a missing value
+ *            FillValue       out  value signifying a filled value
  *            type             out  storage type
  *            globaldef        out  global definitions
  *            timename         out  time variable name
@@ -249,7 +273,7 @@ int scan_line(FILE *formfile, int *id, int *col,
               char *name, char *unit, char *long_name,
               float *scale_factor, float *add_offset,
               float *valid_min, float *valid_max,
-              float *missing_value, int *type,
+              float *missing_value, double *FillValue, int *type,
               global_def *globaldef,
 	      char *timename, int *ncol, char *dimname,
 	      int *follow_id,
@@ -274,6 +298,7 @@ boolean
      valid_min_found = FALSE,
      valid_max_found = FALSE,
      missing_value_found = FALSE,
+     FillValue_found = FALSE,
      time_found = FALSE,
      type_found = FALSE,
      ncol_found = FALSE,
@@ -291,7 +316,6 @@ boolean
           otherline = FALSE;
           linecopy = get_clearstring(strlen(line)+strlen(dumline));
           strcpy(linecopy, line);
-          /* Do not free ? */ 
   	  free(line);
 	  
           strcat(linecopy, dumline);
@@ -299,7 +323,6 @@ boolean
        else {
           linecopy = get_clearstring(strlen(line)+strlen(dumline));
           strcpy(linecopy, line);
-	  /* Do not free ? */
 	  free(line);
 	  
           strncat(linecopy, dumline, (slashp-dumline)/sizeof(char));
@@ -313,7 +336,6 @@ boolean
     if (strstr(line, "//")) {
        pos = (int) (line-strstr(line, "//"));
        if (!pos) {
-       /* line should be freed, but get SIGABORT so, just leave it  ?*/
           free(line);
           return 0;
        }
@@ -322,7 +344,6 @@ boolean
     linecopy[0]='\0';
     strncpy(linecopy, line, (size_t) pos+1);
 
-    /* line should be freed, but get SIGABORT so, just leave it  ? */
     free(line);
     
     if (!strlen(linecopy)) return 0;
@@ -383,6 +404,12 @@ boolean
             error("unknown type",-1);
 	}
     }
+
+    /* (3.11a)  FillValue attribute */
+    FillValue_found = get_double(linecopy, "FillValue", 
+                                   "FillValue", FillValue);
+ 
+
     
     /* (3.12) Number of columns */
     ncol_found = get_int(linecopy, "ncol", "number of columns", ncol);
@@ -490,6 +517,8 @@ char
 float
     scale_factor, add_offset, valid_min, valid_max, missing_value,
     time_mult, time_offset;
+double
+    FillValue;
 global_def
     globaldef;
 time_def
@@ -518,6 +547,7 @@ boolean
        valid_min = NO_VALUE;
        valid_max = NO_VALUE;
        missing_value = NO_VALUE;
+       FillValue = NO_VALUE;
        type = NC_FLOAT;
        ncol = 1;
        follow_id = -1;
@@ -530,7 +560,7 @@ boolean
        /* (2.2) Get info from a line */
        if (scan_line(formfile, &arrayid, &column, name, unit, 
                      long_name, &scale_factor, &add_offset,
-                     &valid_min, &valid_max, &missing_value, &type,
+                     &valid_min, &valid_max, &missing_value, &FillValue, &type,
                      &globaldef, timename, &ncol, dimname,
           		      &follow_id, &time_comp, &time_csi_hm,
 		               &time_mult, &time_offset)) {
@@ -670,6 +700,8 @@ boolean
 	      (*(coldef+*numcoldef)).valid_max = valid_max;
 	      /* Missing value */
 	      (*(coldef+*numcoldef)).missing_value = missing_value;
+	      /* FillValue */
+	      (*(coldef+*numcoldef)).FillValue = FillValue;
 	      /* Make room for floats (conversions handled by netcdf */
               (*(coldef+*numcoldef)).values =
 	           (double *) malloc(sizeof(double)*MAX_SAMPLES*
@@ -768,6 +800,8 @@ boolean
       (*(coldef+*numcoldef)).valid_max = NO_VALUE;
       /* Missing value */
       (*(coldef+*numcoldef)).missing_value = NO_VALUE;
+      /* Missing value */
+      (*(coldef+*numcoldef)).FillValue = NO_VALUE;
       /* I am time !! */
       (*(coldef+*numcoldef)).i_am_time = TRUE;
       /* I am time !! */
@@ -858,14 +892,45 @@ boolean
             nc_handle_error(status);
       }
 
-      /* (3.8) Missing_value attribute: changed name to _FillValue, since that
-       * is standard and used by netcdf when writing (AM 04-10-2002) */
+      /* (3.8) Missing_value attribute */
       if ((*(coldef+i)).missing_value != NO_VALUE) {
            status = nc_put_att_float(ncid, (*(coldef+i)).nc_var, 
-                                   "_FillValue", (*(coldef+i)).nc_type, 1,
+                                   "missing_value", (*(coldef+i)).nc_type, 1,
                                    &((*(coldef+i)).missing_value));
          if (status != NC_NOERR) 
             nc_handle_error(status);
+      }
+
+      /* (3.9) FillValue attribute */
+      if ((*(coldef+i)).FillValue != NO_VALUE) {
+           status = nc_put_att_double(ncid, (*(coldef+i)).nc_var, 
+                                   "FillValue", (*(coldef+i)).nc_type, 1,
+                                   &((*(coldef+i)).FillValue));
+         if (status != NC_NOERR) 
+            nc_handle_error(status);
+      } else {
+	 /* Now fill the FillValue attribute anyway, since we need it later */
+          switch((*(coldef+i)).nc_type)
+          {
+             case NC_BYTE:
+		     (*(coldef+i)).FillValue = (double) NC_FILL_BYTE;
+                     break;
+             case NC_CHAR:
+                     (*(coldef+i)).FillValue = (double) NC_FILL_CHAR;
+                     break;
+             case NC_INT:
+                     (*(coldef+i)).FillValue = (double) NC_FILL_INT;
+                     break;
+             case NC_SHORT:
+                     (*(coldef+i)).FillValue = (double) NC_FILL_SHORT;
+                     break;
+             case NC_FLOAT:
+                     (*(coldef+i)).FillValue = (double) NC_FILL_FLOAT;
+                     break;
+             case NC_DOUBLE:
+                     (*(coldef+i)).FillValue = (double) NC_FILL_DOUBLE;
+                     break;
+        }
       }
       
       /* Is a time component ? */

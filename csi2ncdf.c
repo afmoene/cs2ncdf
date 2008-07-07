@@ -38,7 +38,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.30"
+#define CSI2NCDF_VER "2.2.31"
 
 /* ........................................................................
  *
@@ -288,35 +288,10 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
                      }
 		     if (colnum ==  ncol)
 			     end_txtline = TRUE;
-		     /* if it is read incorrectly th egeneric flag NO_VALUE is used */
-		     if (txtdata[colnum-1] == NO_VALUE) {
-                             if (coldef[col2vardef[colnum-1]].missing_value == NO_VALUE) {
-	    	               switch(coldef[col2vardef[colnum-1]].nc_type)
-	  	               {
-	  		         case NC_BYTE:
-	  	                    value = (double) NC_FILL_BYTE;
-                                    break;
-	  		         case NC_CHAR:
-	  	                    value = (double) NC_FILL_CHAR;
-                                    break;
-	  		         case NC_INT:
-	  		            value = (double) NC_FILL_INT;
-                                    break;
-	  		         case NC_SHORT:
-	  		            value = (double) NC_FILL_SHORT;
-                                    break;
-	  		         case NC_FLOAT:
-	  		             value = (double) NC_FILL_FLOAT;
-                                     break;
-	  		         case NC_DOUBLE:
-	     	  	             value = (double) NC_FILL_DOUBLE;
-                                     break;
-                               }
-			     } else {
-			       value = coldef[col2vardef[colnum-1]].missing_value;
-		             }
-
-		     } else
+		     /* if it is read incorrectly the generic flag NO_VALUE is used */
+		     if (txtdata[colnum-1] == NO_VALUE)
+   	                  value =  coldef[col2vardef[colnum-1]].FillValue;
+		     else
 	                  value = txtdata[colnum-1];
                      if ((list_line && linenum   <=   list_line) ||
                          (list_line == -1)) {
@@ -398,46 +373,21 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
 		     /* Make sure that arrays of give array_id are
 		      * synchronized */
 		     if (sloppy) {
-                       for (i=0; i < *numcoldef; i++) {
+                       for (i=0; i < *numcoldef; i++) 
                          if (coldef[i].array_id == array_id) {
-                           if (!coldef[i].got_val) { 
-                             if (coldef[i].missing_value == NO_VALUE) {
-	    	               switch(coldef[i].nc_type)
-	  	               {
-	  		         case NC_BYTE:
-	  	                    value = (double) NC_FILL_BYTE;
-                                    break;
-	  		         case NC_CHAR:
-	  	                    value = (double) NC_FILL_CHAR;
-                                    break;
-	  		         case NC_INT:
-	  		            value = (double) NC_FILL_INT;
-                                    break;
-	  		         case NC_SHORT:
-	  		            value = (double) NC_FILL_SHORT;
-                                    break;
-	  		         case NC_FLOAT:
-	  		             value = (double) NC_FILL_FLOAT;
-                                     break;
-	  		         case NC_DOUBLE:
-	     	  	             value = (double) NC_FILL_DOUBLE;
-                                     break;
-                               }
-                             } else {
-		               value = (double) coldef[i].missing_value;
-			     }
+                           if (!coldef[i].got_val) {
+   	                     value =  coldef[i].FillValue;
 			     for (j = 0; j< coldef[i].ncol; j++)
                                  coldef[i].values[coldef[i].ncol*
                                                   coldef[i].curr_index+j] = 
 			               (double) value;
-                             printf("warning: filling missing value with fake\n");
+                             printf("warning: filling missing value with FillValue\n");
                              printf("line num = %i variable = %s\n", linenum, coldef[i].name);
                              (coldef[i].index)++;
                              (coldef[i].curr_index)++;
                              coldef[i].got_val = TRUE;
                            }
                          }
-		       }
                      }
                      for (i=0; i < *numcoldef; i++) {
                        if (coldef[i].array_id == array_id) {

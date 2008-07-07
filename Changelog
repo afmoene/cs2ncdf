@@ -1,6 +1,10 @@
 $Id$
 Changelog for csi2ncdf
-Version 2.2.29: 2008-04-04 (arnold.moene@wur.nl)
+Version 2.2.31: 2008-04-07 (arnold.moene@wur.nl)
+* reconsidered FillValue and missing_value attributes: now missing_value only
+indicates which value should be interpreted as being a missing value (without
+touching the data, whereas FillValue is used to fill up missing data
+Version 2.2.30: 2008-04-04 (arnold.moene@wur.nl)
 * fixed bug related to handling of composite time seg faults due to writing
 beyond array bounds)
 Version 2.2.29: 2008-04-03 (arnold.moene@wur.nl)
