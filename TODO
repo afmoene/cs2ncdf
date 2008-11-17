@@ -1,5 +1,6 @@
 $Id$
 Todo list for csi2ncdf.
+* pay attention in manual to construction of COARDS compliant time (including sugestion to do it, and explanation on how to do it with offsets etc.)
 
 Apparent bug:
 * input ASCII file without ArrayID. -b condition does not work if fake arrayID in configuration file is set to 0 (zero). A -c condition *does* work.

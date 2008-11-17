@@ -466,9 +466,11 @@ boolean
         error("number of columns defined, but no name for extra dimension",-1);
      }
 
+/* No longer needed, since FillValue is now used (as of version 2.2.31) to fill missing value
      if (follow_id_found && !missing_value_found) {
         error("when follow_id defined, also missing_value should be defined",-1);
      }
+*/
      
      if (time_offset_found && !time_mult_found)  {
          error("does not make sense to define time_offset, when not defining time_mult",-1);

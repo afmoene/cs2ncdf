@@ -29,6 +29,7 @@
 typedef struct {
 	int frame_length;
 	float samp_interval;
+	float frame_time_res;
 } tob_info;
 
 
@@ -93,10 +94,10 @@ char *get_tob_string(char *s, char delimiter) {
 }
 
 /* Decode the second line of a TOB2 or TOB3 file */
-void tob_decode(char* s, tob_info *info){
+void tob_decode(char* s, tob_info *file_info){
    int i, framelength;
    char delimiter,
-        *unitstring, 
+        *unitstring, *secstring,
 	numstring[MAX_STRINGLENGTH],
 	dumstring2[MAX_STRINGLENGTH];
 
@@ -121,8 +122,8 @@ void tob_decode(char* s, tob_info *info){
    /* Find time units */
    if ((unitstring = strstr(dumstring2, "MSEC"))) {
 	   strncpy(numstring, dumstring2, (unitstring-dumstring2));
-	   if (((*info).samp_interval = atof(numstring)))
-	      (*info).samp_interval *= 0.001;
+	   if (((*file_info).samp_interval = atof(numstring)))
+	      (*file_info).samp_interval *= 0.001;
            else
               error("can not decode samping interval in MSEC", -1);
    }
@@ -135,7 +136,30 @@ void tob_decode(char* s, tob_info *info){
    if (!(framelength = atoi(dumstring2))){
        error("can not decode frame length", -1);
    } else
-      (*info).frame_length = framelength;
+      (*file_info).frame_length = framelength;
+
+   /* Read fourth column (and skip) */
+   strcpy(dumstring2 , get_tob_string(s, delimiter));
+   s += strlen(dumstring2) + 2;
+
+   /* Read fifth  column (and skip) */
+   strcpy(dumstring2 , get_tob_string(s, delimiter));
+   s += strlen(dumstring2) + 2;
+
+   /* Read sixth  column */
+   strcpy(dumstring2 , get_tob_string(s, delimiter));
+   s += strlen(dumstring2) + 2;
+
+   /* Find frame time resolution */
+   if ((unitstring = strstr(dumstring2, "Usec"))) {
+       if ((secstring = strstr(dumstring2, "Sec"))) {
+	   strncpy(numstring, secstring+3, (unitstring-dumstring2));
+	   if (((*file_info).frame_time_res = atof(numstring)))
+	      (*file_info).frame_time_res *= 1e-6;
+           else
+              error("can not decode frame time resolution Usec", -1);
+       }
+   }
 }
 
 /* Decode the final line of the TOB header, which contains the definition
@@ -176,7 +200,7 @@ void typeline_decode(char* s, int coltype[MAXCOL],  int *ncol) {
    *ncol = col;
 }
 
-/* Decode the timestap information contained in the frame header */
+/* Decode the timestap information (without subsecond info) contained in the frame header */
 struct tm decode_tobtime(long tobtime){
 	struct tm base_time;
 	long      del_sec, del_min, del_hour, del_day, rest_sec, rest_min, rest_hour;
@@ -292,18 +316,19 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
          	fread(&dum_int, sizeof(dum_int), 1, infile);
 		tobtime = decode_tobtime((long) dum_int);
          	fread(&dum_int, sizeof(dum_int), 1, infile);
+	        subseconds = dum_int*tobfileinfo.frame_time_res;
 		byte_inframe+=8;
 	}
 	if (tob_type == FTYPE_TOB3) {
          	fread(&dum_int, sizeof(dum_int), 1, infile);
 		tobtime = decode_tobtime((long) dum_int);
          	fread(&dum_int, sizeof(dum_int), 1, infile);
+	        subseconds = dum_int*tobfileinfo.frame_time_res;
          	fread(&dum_int, sizeof(dum_int), 1, infile);
 		byte_inframe+=12;
         }
 
 	/* Initialize subseconds */
-	subseconds = 0;
 	
         /* Loop data */
         while (!feof(infile) && ((cur_line < list_line) || (list_line == -1))) {
