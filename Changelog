@@ -3,6 +3,8 @@ Changelog for csi2ncdf
 Version 2.2.32: 2008-11-17 (arnold.moene@wur.nl)
 * TOB files: also decode subsecond info of frames (thanks to Wonsik Kim for
 point out this omission)
+* specification of mssing_value for following ID no longer needed, since
+FillValue is now used.
 Version 2.2.31: 2008-04-07 (arnold.moene@wur.nl)
 * reconsidered FillValue and missing_value attributes: now missing_value only
 indicates which value should be interpreted as being a missing value (without
