@@ -407,7 +407,7 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
                  case TOB_IEEE4B:
                     nitems = fread(&dum_float, sizeof(dum_float), 1, infile);
 		    if (nitems) {
-		       printf("ieee4b nitems = %i\n", nitems);
+		       // printf("ieee4b nitems = %i\n", nitems);
 		       if (machine_endian == ENDIAN_LITTLE) (void) ReverseBytesInArray(&dum_float, sizeof(dum_float));
 		       byte_inframe+=4;
 		       if (print_col[i]) printf("%.*f ", decimal_places, dum_float);
