@@ -59,36 +59,41 @@ int daynumber( int year, int month, int day){
 
 
 /* Get a string from the delimited header line of a TOB file */
-char *get_tob_string(char *s, char delimiter) {
-    char dumstring[MAX_STRINGLENGTH], *pChSpace, *dumstring2;
+/* Pointer to string in order to be able to modify position in string */
+char *get_tob_string(char** s, char delimiter) {
+    char dumstring[MAX_STRINGLENGTH], *dumstring2;
     int i;
     
     dumstring2 = (char *) malloc(MAX_STRINGLENGTH);
-
     /* Delimiter is in front, remove it */
-    if (s[0] == delimiter) {
+    if ((*s)[0] == delimiter) {
         i = 0;
-        while (s[i] == delimiter)
+        while ((*s)[i] == delimiter) {
             i++;
-                // Seems to be problematic at 64 bit machines
-        // pChSpace = &s[i];
+		}
+        // Seems to be problematic at 64 bit machines
+        //pChSpace = &s[i];
         // strcpy(s, pChSpace);
-                // replaced by (suggestion by Clemens Drüe)
-                s = s + i ;
+        // replaced by (suggestion by Clemens Drüe)
+		*s = *s + i;
     }
     /* Find closing delimiter and take part of strnig before that */
-    if (strchr(s, delimiter) != NULL) {
+    if (strchr(*s, delimiter) != NULL) {
         i = 0;
-        while (s[i] != delimiter)
+        while ((*s)[i] != delimiter)
         i++;
     } else
-        i = strlen(s);
-    strncpy(dumstring, s, i);
+        i = strlen(*s);
+
+		strncpy(dumstring, *s, i);
 
     /* remove quotes */
     if (dumstring[i-1] == '"') {
         strncpy(dumstring2, &dumstring[1], i-2);
         dumstring2[i-2]='\0';
+    } else if (dumstring[i-2] == '"') {
+        strncpy(dumstring2, &dumstring[1], i-3);
+        dumstring2[i-3]='\0';  		
     } else {
         strncpy(dumstring2, &dumstring[1], i-4);
         dumstring2[i-4]='\0';
@@ -114,13 +119,13 @@ void tob_decode(char* s, tob_info *file_info){
 
    /* Skip first column */
    for (i=0; i<1; i++){
-      strcpy(dumstring2 , get_tob_string(s, delimiter));
-      s += strlen(dumstring2) + 2;
+      strcpy(dumstring2 , get_tob_string(&s, delimiter));
+      s += strlen(dumstring2) + 2; // add two to skip quote and comma
    }
 
    /* Read second column */
-   strcpy(dumstring2 , get_tob_string(s, delimiter));
-   s += strlen(dumstring2) + 2;
+   strcpy(dumstring2 , get_tob_string(&s, delimiter));
+   s += strlen(dumstring2) + 2;  // add two to skip quote and comma
 
    /* Find time units */
    if ((unitstring = strstr(dumstring2, "MSEC"))) {
@@ -132,8 +137,8 @@ void tob_decode(char* s, tob_info *file_info){
    }
 
    /* Read third column */
-   strcpy(dumstring2 , get_tob_string(s, delimiter));
-   s += strlen(dumstring2) + 2;
+   strcpy(dumstring2 , get_tob_string(&s, delimiter));
+   s += strlen(dumstring2) + 2;  // add two to skip quote and comma
 
    /* Convert to int */
    if (!(framelength = atoi(dumstring2))){
@@ -142,16 +147,16 @@ void tob_decode(char* s, tob_info *file_info){
       (*file_info).frame_length = framelength;
 
    /* Read fourth column (and skip) */
-   strcpy(dumstring2 , get_tob_string(s, delimiter));
-   s += strlen(dumstring2) + 2;
+   strcpy(dumstring2 , get_tob_string(&s, delimiter));
+   s += strlen(dumstring2) + 2;  // add two to skip quote and comma
 
    /* Read fifth  column (and skip) */
-   strcpy(dumstring2 , get_tob_string(s, delimiter));
-   s += strlen(dumstring2) + 2;
+   strcpy(dumstring2 , get_tob_string(&s, delimiter));
+   s += strlen(dumstring2) + 2;  // add two to skip quote and comma
 
    /* Read sixth  column */
-   strcpy(dumstring2 , get_tob_string(s, delimiter));
-   s += strlen(dumstring2) + 2;
+   strcpy(dumstring2 , get_tob_string(&s, delimiter));
+   s += strlen(dumstring2) + 2;   // add two to skip quote and comma
 
    /* Find frame time resolution */
    if ((unitstring = strstr(dumstring2, "Usec"))) {
@@ -183,8 +188,8 @@ void typeline_decode(char* s, int coltype[MAXCOL],  int *ncol) {
    /* Cycle as long as delimiters in line */
    col = 0;
    while ((col < MAXCOL) && (strchr(s, delimiter) != NULL)) {
-       strcpy(dumstring2 , get_tob_string(s, delimiter));
-       if (! strcmp(dumstring2, "ULONG"))
+       strcpy(dumstring2 , get_tob_string(&s, delimiter));
+      if (! strcmp(dumstring2, "ULONG"))
        coltype[col] = TOB_ULONG;
        else if (! strcmp(dumstring2, "IEEE4"))
        coltype[col] = TOB_IEEE4;
@@ -198,7 +203,7 @@ void typeline_decode(char* s, int coltype[MAXCOL],  int *ncol) {
        printf("Error: unknown data type in TOB file: %s\n", s);
        col++;
        /* I'm not sure whether this always works */
-       s += strlen(dumstring2) + 2;
+       s += strlen(dumstring2) + 2;  // add two to skip quote and comma
    }
    *ncol = col;
 }
@@ -279,17 +284,26 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
     char buffer[MAX_STRINGLENGTH]; 
         unsigned char two_char[2];
         char dumstring[MAX_STRINGLENGTH];
-    int  i, ncol, coltype[MAXCOL], cur_line, nskip, byte_inframe, frame_length,
+    int  i, ncol, coltype[MAXCOL], cur_line, nskip, byte_inframe, frame_length = 0 ,
          machine_endian;
     unsigned long dum_long;
     unsigned int dum_int;
-    float dum_float, samp_interval, subseconds, rest;
+    float dum_float, samp_interval = 0, subseconds = 0, rest;
     struct tm tobtime, tob1time;
     tob_info  tobfileinfo;
     int      nitems;
+	time_t   curtime;
+	struct tm *loctime;
 
     /* Check endianness of machine */
         machine_endian = UtilEndianType();
+		
+	/* Initialize tobtimes with current time (just to initialize) */
+	curtime = time(NULL);
+	loctime = localtime(&curtime);
+	tobtime = *loctime;
+	tob1time = *loctime;
+
 
     /* Skip first four or five lines, getting appropriate data from those
            lines */
@@ -469,7 +483,7 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
 void do_conv_toa(FILE *infile, int ncid, FILE *formfile, int list_line, boolean print_col[MAXCOL], int toa_type, int decimal_places)
 {
     char *buffer, *bufferstart, dumstring2[MAX_STRINGLENGTH];
-        char dumstring[MAX_STRINGLENGTH], delimiter, *pChSpace;
+        char dumstring[MAX_STRINGLENGTH], delimiter;
     int  i, cur_line, nskip, col;
         int year, month, day, hour, min;
         float sec;

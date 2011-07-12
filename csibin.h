@@ -117,7 +117,7 @@ unsigned char bytetype(unsigned char byte[2]) {
  */
 float conv_two_byte(unsigned char byte[2]) {
 
-    float sign, decimal;
+    float sign, decimal = 1.0;
     unsigned char dec_byte;
     unsigned int base;
 
@@ -153,7 +153,7 @@ float conv_two_byte(unsigned char byte[2]) {
  * ........................................................................
  */
 float conv_four_byte(unsigned char byte1[2], unsigned char byte2[2]) {
-    float sign, decimal;
+    float sign, decimal = 1.0;
     unsigned char dec_byte;
     unsigned int base;
 

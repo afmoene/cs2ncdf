@@ -38,7 +38,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.34 beta"
+#define CSI2NCDF_VER "2.2.34"
 
 /* ........................................................................
  *
@@ -161,14 +161,14 @@ void do_conv_csi(FILE *infile, int ncid, FILE *formfile,   int list_line,
          buffer[MAX_BYTES], data[MAX_BYTES*2], myswitch;
      char    txtline[MAX_BYTES];
      float   timvalue;
-     double  value, txtdata[MAXCOL];
+     double  value = 0, txtdata[MAXCOL];
      size_t  count[2], start[2];
      int     array_id,   i,   j,   num_bytes, curr_byte, timcol, rest_byte;
      int     linenum, colnum, status;
-     int     wanted_data, ncol, def_array_id, l_index, l_curr_index;
+     int     wanted_data, ncol, def_array_id = 0, l_index = 0, l_curr_index = 0;
      int     ndummy;
      char    *printline = NULL  , dumstring[100];
-     boolean have_start, have_stop, end_txtline,
+     boolean have_start, have_stop, end_txtline = FALSE,
              valid_sample, start_of_line;
 
            

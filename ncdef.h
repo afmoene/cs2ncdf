@@ -999,7 +999,7 @@ boolean
 void txtdecode(char* s, double *txtdata, 
                 int inftype, int *ncol) {
    int i, col, nvalues;
-   char dumstring[MAX_STRINGLENGTH], delimiter, *pChSpace;
+   char dumstring[MAX_STRINGLENGTH], delimiter;
    double conv_value;
 
    // Set separator

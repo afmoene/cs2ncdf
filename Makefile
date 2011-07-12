@@ -17,15 +17,23 @@ LINCDIR='-I/usr/include -I$(LIBSRC)/'
 LLIBDIR=-L/usr/lib
 NETCDF_INCLUDE='-I/usr/include'
 
-# For MingW
+# For MingW on Linux
+#BUILD-WIN32=build-win32
+#WFC=/usr/local/bin/i386-mingw32-gcc 
+#WAR=/usr/local/bin/i386-mingw32-ar
+#WRANLIB=/usr/local/bin/i386-mingw32-ranlib
+#WEXT=.exe
+#WINCDIR='-I/usr/local/i386-mingw32/include -I$(LIBSRC)/'
+#WLIBDIR=-L/usr/local/i386-mingw32/lib
+
+# For MingW on windows (Msys)
 BUILD-WIN32=build-win32
-WFC=/usr/local/bin/i386-mingw32-gcc 
-WAR=/usr/local/bin/i386-mingw32-ar
-WRANLIB=/usr/local/bin/i386-mingw32-ranlib
+WFC=gcc 
+WAR=ar
+WRANLIB=ranlib
 WEXT=.exe
-WINCDIR='-I/usr/local/i386-mingw32/include -I$(LIBSRC)/'
-WLIBDIR=-L/usr/local/i386-mingw32/lib
-WEXT=.exe
+WINCDIR='-I/usr/include'
+WLIBDIR=-L/usr/lib
 
 # NetCDF libraray
 NETCDF_LIB = -lnetcdf

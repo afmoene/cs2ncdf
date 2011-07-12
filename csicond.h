@@ -66,7 +66,7 @@ int column_cond[COND_MAXCOL];
 
 void parse_cond(cond_def *thiscond)
 {
-   char *pos1, *pos2, *pos3, *dumpos;
+   char *pos1, *pos2, *pos3 = NULL, *dumpos;
    int i;
    char *colstring;
 
