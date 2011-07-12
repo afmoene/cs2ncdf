@@ -1,10 +1,13 @@
 $Id$
 Changelog for csi2ncdf
-Version 2.2.32: 2009-06-05 (arnold.moene@wur.nl)
+Version 2.2.34: 2010-??-?? (arnold.moene@wur.nl)
+* added extra TOA format (toax) that differs from TOA5 in that it has only one header line and has no quotes around the timestamp
+* Thanks to Clemens Drüe: fixed problems on 64 bit machines (string handling in funtion txtdecode (ncdef.h) and two routines in csitob.h. Furthermore, fixed bug error.h (now simply do: printf("Error : %s",mess);).
+Version 2.2.33: 2009-06-05 (arnold.moene@wur.nl)
 * removed debugging print statement in TOB decoding
 Version 2.2.32: 2008-11-17 (arnold.moene@wur.nl)
 * TOB files: also decode subsecond info of frames (thanks to Wonsik Kim for
-point out this omission)
+pointing out this omission)
 * specification of mssing_value for following ID no longer needed, since
 FillValue is now used.
 Version 2.2.31: 2008-04-07 (arnold.moene@wur.nl)

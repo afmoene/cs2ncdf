@@ -1,6 +1,7 @@
 $Id$
 Todo list for csi2ncdf.
 * pay attention in manual to construction of COARDS compliant time (including sugestion to do it, and explanation on how to do it with offsets etc.)
+* "warning off" switch to prevent writing warnings/errors to screen (write to file). Appending the error file? THis implies changing nc_handle_error, error and the printf's that write warnings (see mail of Oscar as of 14-4-2009)
 
 Apparent bug:
 * input ASCII file without ArrayID. -b condition does not work if fake arrayID in configuration file is set to 0 (zero). A -c condition *does* work.

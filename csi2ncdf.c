@@ -38,7 +38,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.33"
+#define CSI2NCDF_VER "2.2.34 beta"
 
 /* ........................................................................
  *
@@ -698,11 +698,13 @@ int main(int argc, char   *argv[])
         infname[255][255],               /* names of input files */
         outfname[255]="",                /* name of output file */
         formatfname[255]="",             /* name of format file */
+        messfname[255]="",               /* name of message output file */
         dumstring[255]="",                /* dummy string */
         mess[100];                      /* message passed to error */
     FILE
        *infile,                         /* input file */
-       *formfile;                         /* format file */
+       *formfile,                         /* format file */
+       *messfile = stdout;                /* file for warnings and error messages  */
     boolean
         print_col[MAXCOL],                /* write column to stdout ? */
         all_false,
@@ -775,6 +777,12 @@ int main(int argc, char   *argv[])
                case 'f'   :
                  cmd_arg(&argv, &argc,   2,   formatfname);
                  break;
+
+               /* Message file */
+               case 'm'   :
+                 cmd_arg(&argv, &argc,   2,   messfname);
+                 break;
+
 
                /* List number of lines */
                case 'l'   :
@@ -862,6 +870,9 @@ int main(int argc, char   *argv[])
 		 } else if (!strcmp(dumstring, "toa5")) {
 		     inftype = FTYPE_TOA5;
 		     txtfile = TRUE;
+		 } else if (!strcmp(dumstring, "toax")) {
+		     inftype = FTYPE_TOAX;
+		     txtfile = TRUE;
 		 } else
                      error("unknown new file type\n", -1);
 		 break;
@@ -947,6 +958,13 @@ int main(int argc, char   *argv[])
     }
 
     /* (4) Open files and test for success */
+    /* (4.0 ) Message  file */
+    if (strlen(messfname))
+       if ((messfile = fopen(messfname, "a+"))   ==   NULL)   {
+            sprintf(mess,   "cannot open file %s for appending.\n", messfname);
+            error(mess, (int) FILE_NOT_FOUND);
+       }
+
     /* (4.1) Output file */
     if (!list_line) {
       status =   nc_create(outfname, NC_WRITE, &ncid);
@@ -960,6 +978,7 @@ int main(int argc, char   *argv[])
        sprintf(mess,   "cannot open file %s for reading.\n", formatfname);
        error(mess, (int) FILE_NOT_FOUND);
     }
+
 
     /* (4.3) Cycle the input file */
     for (i=0; i<num_infiles;i++) {
@@ -1009,7 +1028,7 @@ int main(int argc, char   *argv[])
        /* (4.3.2) Do conversion */
        if ((inftype == FTYPE_TOB1) || (inftype == FTYPE_TOB2) ||  (inftype == FTYPE_TOB3))
           do_conv_tob(infile, ncid, formfile, list_line, print_col, inftype, conv_tob1_time, decimal_places);
-       else if (inftype == FTYPE_TOA5)
+       else if (inftype == FTYPE_TOA5 || inftype == FTYPE_TOAX)
           do_conv_toa(infile, ncid, formfile, list_line, print_col, inftype, decimal_places);
        else
           do_conv_csi(infile,   ncid,   formfile, list_line,

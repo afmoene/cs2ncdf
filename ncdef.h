@@ -40,7 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define FTYPE_TOB2 6
 #define FTYPE_TOB3 7
 #define FTYPE_TOA5 8
-
+#define FTYPE_TOAX 9
 
 /* ........................................................................
  * type declarations
@@ -1020,8 +1020,11 @@ void txtdecode(char* s, double *txtdata,
           i = 0;
           while (s[i] == delimiter)
              i++;
-          pChSpace = &s[i];
-          strcpy(s, pChSpace);
+          // Following 2 lines seem to be problmatic on 64 bit machines
+          // pChSpace = &s[i];
+          // strcpy(s, pChSpace);
+          // replaced by  Clemens Drüe
+          s = s + i ;
        }
        // There is a delimiter in the line, proceed until found
        if (strchr(s, delimiter) != NULL) {

@@ -54,10 +54,7 @@ void
  */
 void error(char mess[], int error_code)
 {
-	char lead[] = "Error : ";
-
-	strcat(lead, mess);
-	printf(lead);
+	printf("Error : %s",mess);
 	exit(error_code);
 }
 
