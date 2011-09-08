@@ -38,7 +38,7 @@
 #include   "csitob.h"
 
 
-#define CSI2NCDF_VER "2.2.34"
+#define CSI2NCDF_VER "2.2.35"
 
 /* ........................................................................
  *
@@ -996,7 +996,9 @@ int main(int argc, char   *argv[])
           error(mess, (int) FILE_NOT_FOUND);
        }
 
-       if (i > 0) {
+       // If there are multiple files, and we have column definitions from a format file, check whether
+       // all columns are at the same sample; not relevant for output to standard output
+       if (!list_line && (i > 0)) {
            max_index = 0;
            max_curr_index = 0;
            for (n = 0; n < numcoldef; n++) {
