@@ -484,7 +484,7 @@ void do_conv_toa(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
 {
     char *buffer, *bufferstart, dumstring2[MAX_STRINGLENGTH];
         char dumstring[MAX_STRINGLENGTH], delimiter;
-    int  i, cur_line, nskip, col;
+    int  i, cur_line, nskip, col, chars_read;
         int year, month, day, hour, min;
         float sec;
         int valid_value;
@@ -518,89 +518,91 @@ void do_conv_toa(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
     cur_line = 0;
     col = 0;
     
-        /* Loop data */
-        while (!feof(infile) && ((cur_line < list_line) || (list_line == -1))) {
-           /* Reset start of buffer */
-           buffer = bufferstart;
+    /* Loop data */
+    while (!feof(infile) && ((cur_line < list_line) || (list_line == -1))) {
+        /* Reset start of buffer */
+        buffer = bufferstart;
 
-       /* Get a line */
-           fgets(buffer, MAX_STRINGLENGTH, infile);
-           cur_line++;
-           col = 0;
-           /* Get the time stamp */
-           while (strchr(buffer, delimiter) != NULL) {
-               // We start with a delimiter
-               if (buffer[0] == delimiter) {
+        /* Get a line */
+        chars_read=fgets(buffer, MAX_STRINGLENGTH, infile);
+        /* Only do something if we actually read something */
+        if ((chars_read > 0) && (chars_read != EOF)) {
+            cur_line++;
+            col = 0;
+            /* Get the time stamp */
+            while (strchr(buffer, delimiter) != NULL) {
+                // We start with a delimiter
+                if (buffer[0] == delimiter) {
+                    i = 0;
+                    while (buffer[i] == delimiter)
+                        i++;
+                    // Following 2 lines seem to be problematic at 64 bit machines
+                    // pChSpace = &buffer[i];
+                    // strcpy(buffer, pChSpace);
+                    // replaced by (suggestion by Clemens Drüe)
+                    buffer = buffer + i;
+                }
+                // There is a delimiter in the line, proceed until found
+                if (strchr(buffer, delimiter) != NULL) {
                    i = 0;
-                   while (buffer[i] == delimiter)
-                       i++;
-                   // Following 2 lines seem to be problematic at 64 bit machines
-                   // pChSpace = &buffer[i];
-                   // strcpy(buffer, pChSpace);
-                   // replaced by (suggestion by Clemens Drüe)
-                   buffer = buffer + i;
-               }
-              // There is a delimiter in the line, proceed until found
-              if (strchr(buffer, delimiter) != NULL) {
-                 i = 0;
-                 while (buffer[i] != delimiter)
-                    i++;
-             // There is no longer a delimiter in the rest of the line, so just find the 
-             // part of the line that contains printable characters.
-              } else
-                 while (isprint(buffer[i])) i++;
-              strncpy(dumstring, buffer, i);
-              dumstring[i]='\0';
+                   while (buffer[i] != delimiter)
+                      i++;
+                   // There is no longer a delimiter in the rest of the line, so just find the 
+                   // part of the line that contains printable characters.
+                } else
+                   while (isprint(buffer[i])) i++;
+                strncpy(dumstring, buffer, i);
+                dumstring[i]='\0';
 
-              // Check if this really can be a number; it might be end of line!
+                // Check if this really can be a number; it might be end of line!
 			  
-              if (isprint(dumstring[i-1])) {
-                   if (col==0) {
-                       year = -1;
-                       month = -1;
-                       day = -1;
-                       hour = -1 ;
-                       min = -1;
-                       sec = -1;
-               if (toa_type == FTYPE_TOAX) 
-                   skip_quote=-1;
-               else
-                   skip_quote=0;
+                if (isprint(dumstring[i-1])) {
+                    if (col==0) {
+                        year = -1;
+                        month = -1;
+                        day = -1;
+                        hour = -1 ;
+                        min = -1;
+                        sec = -1;
+                        if (toa_type == FTYPE_TOAX) 
+                           skip_quote=-1;
+                        else
+                           skip_quote=0;
                    
-               strncpy(dumstring2,&(dumstring[1+skip_quote]),4);
-                       dumstring2[4]='\0';
-               year = atoi(dumstring2);
-               strncpy(dumstring2,&(dumstring[6+skip_quote]),2);
-                       dumstring2[2]='\0';
-               month = atoi(dumstring2);
-               strncpy(dumstring2,&(dumstring[9+skip_quote]),2);
-                       dumstring2[2]='\0';
-               day = atoi(dumstring2);
-               strncpy(dumstring2,&(dumstring[12+skip_quote]),2);
-                       dumstring2[2]='\0';
-               hour = atoi(dumstring2);
-               strncpy(dumstring2,&(dumstring[15+skip_quote]),2);
-                       dumstring2[2]='\0';
-               min = atoi(dumstring2);
-               strcpy(dumstring2,&(dumstring[18+skip_quote]));
-               sec = atof(dumstring2);
+                        strncpy(dumstring2,&(dumstring[1+skip_quote]),4);
+                        dumstring2[4]='\0';
+                        year = atoi(dumstring2);
+                        strncpy(dumstring2,&(dumstring[6+skip_quote]),2);
+                        dumstring2[2]='\0';
+                        month = atoi(dumstring2);
+                        strncpy(dumstring2,&(dumstring[9+skip_quote]),2);
+                        dumstring2[2]='\0';
+                        day = atoi(dumstring2);
+                        strncpy(dumstring2,&(dumstring[12+skip_quote]),2);
+                        dumstring2[2]='\0';
+                        hour = atoi(dumstring2);
+                        strncpy(dumstring2,&(dumstring[15+skip_quote]),2);
+                        dumstring2[2]='\0';
+                        min = atoi(dumstring2);
+                        strcpy(dumstring2,&(dumstring[18+skip_quote]));
+                        sec = atof(dumstring2);
 
-                       printf("%i %i %04i %f ", year, daynumber(year, month, day),  hour*100+min, sec);
-                   }
-                   if (col>0 && print_col[col]) {
-               valid_value = sscanf(dumstring, "%lg", &conv_value);
-               if (valid_value)
-                   printf("%.*lg ", decimal_places,  conv_value);
-               else
-                   printf("NaN ");
-               }
-                   buffer = buffer + i ;
-                   col++;
-              }
+                        printf("%i %i %04i %f ", year, daynumber(year, month, day),  hour*100+min, sec);
+                    }
+                    if (col>0 && print_col[col]) {
+                         valid_value = sscanf(dumstring, "%lg", &conv_value);
+                         if (valid_value)
+                              printf("%.*lg ", decimal_places,  conv_value);
+                         else
+                              printf("NaN ");
+                    }
+                    buffer = buffer + i ;
+                    col++;
+                }
 
            }
-       printf(" \n");
-
+           printf(" \n");
         }
-        free(bufferstart);
+    } 
+    free(bufferstart);
 }
