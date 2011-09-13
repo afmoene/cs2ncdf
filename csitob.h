@@ -284,11 +284,11 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
     char buffer[MAX_STRINGLENGTH]; 
         unsigned char two_char[2];
         char dumstring[MAX_STRINGLENGTH];
-    int  i, ncol, coltype[MAXCOL], cur_line, nskip, byte_inframe, frame_length = 0 ,
+    int  i, ncol, coltype[MAXCOL], cur_line, nskip, byte_inframe, 
          machine_endian;
     unsigned long dum_long;
     unsigned int dum_int;
-    float dum_float, samp_interval = 0, subseconds = 0, rest;
+    float dum_float, subseconds = 0, rest;
     struct tm tobtime, tob1time;
     tob_info  tobfileinfo;
     int      nitems;
@@ -315,8 +315,6 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
            fgets(buffer, sizeof(buffer), infile);
        if ((i==1) && ((tob_type == FTYPE_TOB2) || (tob_type == FTYPE_TOB3))) {
               tob_decode(buffer, &tobfileinfo);
-          frame_length = tobfileinfo.frame_length;
-          samp_interval = tobfileinfo.samp_interval;
            }
         }
         /* Get last line of header and determine number of columns and type of
@@ -330,139 +328,145 @@ void do_conv_tob(FILE *infile, int ncid, FILE *formfile, int list_line, boolean 
 
     /* Get first frame header */
     if (tob_type == FTYPE_TOB2) {
-             fread(&dum_int, sizeof(dum_int), 1, infile);
+        fread(&dum_int, sizeof(dum_int), 1, infile);
         tobtime = decode_tobtime((long) dum_int);
-             fread(&dum_int, sizeof(dum_int), 1, infile);
-            subseconds = dum_int*tobfileinfo.frame_time_res;
+        fread(&dum_int, sizeof(dum_int), 1, infile);
+        subseconds = dum_int*tobfileinfo.frame_time_res;
         byte_inframe+=8;
     }
     if (tob_type == FTYPE_TOB3) {
-             fread(&dum_int, sizeof(dum_int), 1, infile);
+        fread(&dum_int, sizeof(dum_int), 1, infile);
         tobtime = decode_tobtime((long) dum_int);
-             fread(&dum_int, sizeof(dum_int), 1, infile);
-            subseconds = dum_int*tobfileinfo.frame_time_res;
-             fread(&dum_int, sizeof(dum_int), 1, infile);
+        fread(&dum_int, sizeof(dum_int), 1, infile);
+        subseconds = dum_int*tobfileinfo.frame_time_res;
+        fread(&dum_int, sizeof(dum_int), 1, infile);
         byte_inframe+=12;
-        }
+    }
 
-    /* Initialize subseconds */
     
-        /* Loop data */
-        while (!feof(infile) && ((cur_line < list_line) || (list_line == -1))) {
+    /* Loop data */
+    while (!feof(infile) && ((cur_line < list_line) || (list_line == -1))) {
        cur_line++;
-       /* report date and time */
-           if ((tob_type == FTYPE_TOB2) || (tob_type == FTYPE_TOB3)) {
-        printf("%i ", tobtime.tm_year+1900);
-        printf("%i ", daynumber(tobtime.tm_year, tobtime.tm_mon+1, tobtime.tm_mday));
-        printf("%i ", tobtime.tm_hour*100+tobtime.tm_min);
-        printf("%f ", tobtime.tm_sec+subseconds);
-           }
        if (!feof(infile)) {
-        nitems = 0 ;
-            for (i=0; i< ncol; i++) {
-              /* We finished a frame */
+           nitems = 0 ;
+           for (i=0; i< ncol; i++) {
+              /* We finished a frame , which might happen often at the start of the line */
               if ((tob_type == FTYPE_TOB2) || (tob_type == FTYPE_TOB3)) {
-        if (byte_inframe + 4  >= frame_length) {
-            /* skip frame footer */
-            fread(dumstring, sizeof(char), 4, infile);
+                 if (byte_inframe + 4  >= tobfileinfo.frame_length) {
+                     /* skip frame footer */
+                     fread(dumstring, sizeof(char), 4, infile);
     
-            /* reset counter */
-            byte_inframe=0;
+                     /* reset counter */
+                     byte_inframe=0;
     
-            /* skip frame header */
-            if (tob_type == FTYPE_TOB2) {
-                fread(&dum_int, sizeof(dum_int), 1, infile);
-                tobtime = decode_tobtime((long) dum_int);
-                fread(&dum_int, sizeof(dum_int), 1, infile);
-                byte_inframe+=8;
-            }
-            if (tob_type == FTYPE_TOB3) {
-                fread(&dum_int, sizeof(dum_int), 1, infile);
-                tobtime = decode_tobtime((long) dum_int);
-                fread(&dum_int, sizeof(dum_int), 1, infile);
-                fread(&dum_int, sizeof(dum_int), 1, infile);
-                byte_inframe+=12;
-            }
-    
-        }
+                     /* skip frame header */
+                     if (tob_type == FTYPE_TOB2) {
+                         fread(&dum_int, sizeof(dum_int), 1, infile);
+                         tobtime = decode_tobtime((long) dum_int);
+                         fread(&dum_int, sizeof(dum_int), 1, infile);
+                         subseconds = dum_int*tobfileinfo.frame_time_res;
+                         byte_inframe+=8;
+                     }
+                     if (tob_type == FTYPE_TOB3) {
+                         fread(&dum_int, sizeof(dum_int), 1, infile);
+                         tobtime = decode_tobtime((long) dum_int);
+                         fread(&dum_int, sizeof(dum_int), 1, infile);
+                         subseconds = dum_int*tobfileinfo.frame_time_res;
+                         fread(&dum_int, sizeof(dum_int), 1, infile);
+                         byte_inframe+=12;
+                     }
+                 } else {
+                 /* Only update subseconds etc. ; only makes sense if we have a valid samp_interval*/
+                    if (tobfileinfo.samp_interval > 0) {  
+                        /* Update time */
+                        subseconds += tobfileinfo.samp_interval;
+                        rest = floor(subseconds);
+                        subseconds -= rest;
+                        tobtime.tm_sec += rest;
+
+                        rest = tobtime.tm_sec - tobtime.tm_sec%60;
+                        tobtime.tm_sec  -= rest;
+                        tobtime.tm_min += rest/60;
+            
+                        /* Should I also update the hour and the rest of the time info AM 13-05-2011 */
+                        /* Subseconds tends to run away, so we reset it */
+                        rest = tobtime.tm_min - tobtime.tm_min%60;
+                        tobtime.tm_min  -= rest;
+                        tobtime.tm_hour += rest/60;
+
+                        if (subseconds < 0.001 * tobfileinfo.samp_interval) subseconds = 0;
+                       /* We should go on indefinitally, but for the moment I think this should suffice */
+                    }
+                 }
               }
+              /* If first column, report date and time */
+              if ((i==0) && ((tob_type == FTYPE_TOB2) || (tob_type == FTYPE_TOB3))) {
+                printf("%i ", tobtime.tm_year+1900);
+                printf("%i ", daynumber(tobtime.tm_year, tobtime.tm_mon+1, tobtime.tm_mday));
+                printf("%i ", tobtime.tm_hour*100+tobtime.tm_min);
+                printf("%f ", tobtime.tm_sec+subseconds);
+              }
+                
+
               /* Processing and reading depends on type of variable */
               switch (coltype[i])  {
                  case TOB_ULONG:
                     nitems = fread(&dum_long, sizeof(dum_long), 1, infile);
-            if (nitems) {
-                    byte_inframe+=4;
-                if (conv_tob1_time) {
-                if (i==0) tob1time = decode_tobtime((long) dum_long);
-                    if (i==1) {
-                       subseconds = dum_long;
-                             printf("%i ", tob1time.tm_year+1900);
-                       printf("%i ", daynumber(tob1time.tm_year, tob1time.tm_mon+1, tob1time.tm_mday));
-                       printf("%i ", tob1time.tm_hour*100+tob1time.tm_min);
-                       printf("%f ", tob1time.tm_sec+subseconds/1e9);
+                    if (nitems) {
+                        byte_inframe+=4;
+                        if (conv_tob1_time) {
+                            if (i==0) tob1time = decode_tobtime((long) dum_long);
+                            if (i==1) {
+                                subseconds = dum_long;
+                                printf("%i ", tob1time.tm_year+1900);
+                                printf("%i ", daynumber(tob1time.tm_year, tob1time.tm_mon+1, tob1time.tm_mday));
+                                printf("%i ", tob1time.tm_hour*100+tob1time.tm_min);
+                                printf("%f ", tob1time.tm_sec+subseconds/1e9);
                             }
                         } 
-                if (print_col[i])
-                    if (!conv_tob1_time || (i>1)) printf("%i ", (int) dum_long);
-                }
-            break;
+                        if (print_col[i])
+                            if (!conv_tob1_time || (i>1)) printf("%i ", (int) dum_long);
+                    }
+                    break;
                  case TOB_IEEE4:
                     nitems = fread(&dum_float, sizeof(dum_float), 1, infile);
-            if (nitems) {
-                 byte_inframe+=4;
-               if (print_col[i]) printf("%.*f ", decimal_places, dum_float);
-            }
-            break;
+                    if (nitems) {
+                        byte_inframe+=4;
+                        if (print_col[i]) printf("%.*f ", decimal_places, dum_float);
+                    }
+                    break;
                  case TOB_IEEE4L:
                     nitems = fread(&dum_float, sizeof(dum_float), 1, infile);
-            if (nitems) {
-               if (machine_endian == ENDIAN_BIG) (void) ReverseBytesInArray(&dum_float, sizeof(dum_float));
-               byte_inframe+=4;
-               if (print_col[i]) printf("%.*f ", decimal_places,  dum_float);
-            }
-            break;
+                    if (nitems) {
+                        if (machine_endian == ENDIAN_BIG) (void) ReverseBytesInArray(&dum_float, sizeof(dum_float));
+                        byte_inframe+=4;
+                        if (print_col[i]) printf("%.*f ", decimal_places,  dum_float);
+                    }
+                    break;
                  case TOB_IEEE4B:
                     nitems = fread(&dum_float, sizeof(dum_float), 1, infile);
-            if (nitems) {
-               // printf("ieee4b nitems = %i\n", nitems);
-               if (machine_endian == ENDIAN_LITTLE) (void) ReverseBytesInArray(&dum_float, sizeof(dum_float));
-               byte_inframe+=4;
-               if (print_col[i]) printf("%.*f ", decimal_places, dum_float);
-            }
-            break;
+                    if (nitems) {
+                       if (machine_endian == ENDIAN_LITTLE) (void) ReverseBytesInArray(&dum_float, sizeof(dum_float));
+                       byte_inframe+=4;
+                       if (print_col[i]) printf("%.*f ", decimal_places, dum_float);
+                    }
+                    break;
                  case TOB_FP2:
                     nitems = fread(two_char, sizeof(two_char[0]), 2, infile);
-            if (nitems) {
-               byte_inframe+=2;
+                    if (nitems) {
+                       byte_inframe+=2;
                        dum_float = conv_two_byte(two_char);
-               if (print_col[i]) printf("%.*f ", decimal_places, dum_float);
-            }
-            break;
-         default:
+                       if (print_col[i]) printf("%.*f ", decimal_places, dum_float);
+                    }
+                    break;
+                 default:
                     break;
               }
-        }
-        if (nitems)  printf(" \n");
            }
+           if (nitems)  printf(" \n");
+       }
 
-       /* Update time */
-       subseconds += samp_interval;
-       rest = floor(subseconds);
-           subseconds -= rest;
-           tobtime.tm_sec += rest;
-
-       rest = tobtime.tm_sec - tobtime.tm_sec%60;
-           tobtime.tm_sec  -= rest;
-           tobtime.tm_min += rest/60;
-            
-           /* Should I also update the hour and the rest of the time info AM 13-05-2011 */
-           /* Subseconds tends to run away, so we reset it */
-       rest = tobtime.tm_min - tobtime.tm_min%60;
-           tobtime.tm_min  -= rest;
-           tobtime.tm_hour += rest/60;
-
-       if (subseconds < 0.001 * samp_interval) subseconds = 0;
-        }
+    }
 }
 
 /* ........................................................................
