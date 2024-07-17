@@ -2,6 +2,7 @@
 
 The purpose of **csi2ncdf** is to convert the data files that are produced by dataloggers of Campbell Scientific (CSI, see www.campbellsci.com (http://www.campbellsci.com)) to NetCDF files (see www.unidata.ucar.edu/packages/netcdf (http://www.unidata.ucar.edu/packages/netcdf/)). This refers both to the classic binary format, ASCII format and there is some support for TOB  files (TOB1-TOB3) and TOA5 files. The conversion of ASCII files to NetCDF is dealt with in more detail in section 'ASCII to NetCDF'.
 
+# Usage
 In addition to pure conversion, the program can also be used to make selections of the data, while converting from CSI to NetCDF. Furthermore, the contents of the CSI file can be dumped to standard output (screen) for quick inspection, or to convert the CSI file to ASCII (in this way it is a very simplified version of the Campbell 'split' program).  The program is invoked as:  
 
     csi2ncdf [-i infile [-i infile] -o outfile -f formatfile] [-l num_lines] 
@@ -26,6 +27,8 @@ where the square brackets denote optional switches: valid commandlines are for e
     csi2ncdf -i tob1.dat -n tob1 -l -1 -k 2 -k 3 
     csi2ncdf -h
 
+# Details 
+
 The flags have the following meaning: 
 
 | flag and argument | description |
@@ -47,4 +50,4 @@ The flags have the following meaning:
 | -d decimal_places | Set number of decimal places in text output to standard output (either for listing file, or for conversion of TOB and TOA formats)|
 | -h | show help on screen |
 
-More detailed information can be found in the readme file in the doc folder.
+More detailed information can be found in the readme file in the doc folder (https://github.com/afmoene/csi2ncdf/blob/master/doc/readme.pdf).
